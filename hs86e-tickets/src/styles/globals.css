@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --surface: #0b0e14;
+  --surface-raised: #161b22;
+  --ink: #f8fafc;
+  --gold: #dfb260;
+  --gold-metallic: #d4af37;
+  --champagne: #f5d68d;
+  --emerald: #043927;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(223, 178, 96, 0.15), transparent 55%),
+    radial-gradient(circle at 8% 92%, rgba(223, 178, 96, 0.15), transparent 42%),
+    #0b0e14;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(223, 178, 96, 0.35);
+  color: #0b0e14;
+}
+
+:focus-visible {
+  outline: 2px solid #f5d68d;
+  outline-offset: 3px;
+}
+
+a {
+  color: inherit;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+.gold-border {
+  box-shadow: 0 0 0 1px rgba(223, 178, 96, 0.2);
+}
+
+.logo-glow {
+  position: relative;
+}
+
+.logo-glow::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  background: radial-gradient(circle, rgba(223, 178, 96, 0.15), transparent 68%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.safe-bottom {
+  padding-bottom: calc(5.6rem + env(safe-area-inset-bottom));
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(22, 27, 34, 1) 0%,
+    rgba(223, 178, 96, 0.12) 50%,
+    rgba(22, 27, 34, 1) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hs-toast {
+  animation: toast-in 180ms ease-out;
+}
+
+@keyframes eq-bar {
+  0%,
+  100% {
+    height: 20px;
+  }
+  50% {
+    height: 60px;
+  }
+}
+
+.eq-bar {
+  height: 20px;
+  animation: eq-bar 1s ease-in-out infinite;
+  box-shadow: 0 0 10px rgba(223, 178, 96, 0.35);
+}
+
+nextjs-portal,
+[data-next-badge],
+[data-next-badge-root],
+[data-nextjs-toast],
+#__next-build-watcher,
+.nextjs-toast-errors-parent {
+  display: none !important;
+}

@@ -1,0 +1,40 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# next
+/.next/
+/out/
+/build
+
+# serwist generated
+/public/sw.js
+/public/sw.js.map
+/public/swe-worker*
+
+# env
+.env
+.env*.local
+!.env.example
+
+# demo persistence
+/.data/
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ide / os
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.pem
+
+# typescript
+next-env.d.ts
+
+# vercel
+.vercel
