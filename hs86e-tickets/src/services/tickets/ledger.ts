@@ -10,38 +10,17 @@ interface Ledger {
 
 const FILE = join(process.cwd(), ".data", "issued-tickets.json");
 
-/**
- * In-memory mirror of the ledger. Serverless filesystems (e.g. Netlify
- * Functions) are read-only outside /tmp, so disk persistence can fail at
- * runtime; the mirror keeps the wallet/scanner consistent for the life of the
- * instance, while hosts with writable disks keep full durability as before.
- */
-let memory: Ledger | null = null;
-let warnedPersist = false;
-
 function load(): Ledger {
   try {
-    memory = JSON.parse(readFileSync(FILE, "utf8")) as Ledger;
+    return JSON.parse(readFileSync(FILE, "utf8")) as Ledger;
   } catch {
-    if (!memory) memory = { tickets: [], transfers: [] };
+    return { tickets: [], transfers: [] };
   }
-  return memory;
 }
 
 function save(ledger: Ledger) {
-  memory = ledger;
-  try {
-    mkdirSync(dirname(FILE), { recursive: true });
-    writeFileSync(FILE, JSON.stringify(ledger, null, 2), "utf8");
-  } catch (err) {
-    if (!warnedPersist) {
-      warnedPersist = true;
-      console.warn(
-        "[hs86e] Ticket ledger directory is not writable on this host — keeping records in memory only.",
-        err,
-      );
-    }
-  }
+  mkdirSync(dirname(FILE), { recursive: true });
+  writeFileSync(FILE, JSON.stringify(ledger, null, 2), "utf8");
 }
 
 export function upsertIssuedTickets(tickets: IssuedTicket[]) {
@@ -133,20 +112,14 @@ export function presentForViewer(
       transferred && (!viewer || (purchaser === viewer && assigned !== viewer)),
     );
     const holder = Boolean(opts?.revealQr) || (viewer ? assigned === viewer : !transferred);
-    // Strict redaction for buyer/lookup routes:
-    //  - orderKey (full order detail) is never returned to a viewer;
-    //  - QR payload/token only for the current holder;
-    //  - attendee phone only for the current holder.
-    const { orderKey: _orderKey, ...safe } = ticket;
     return {
-      ...safe,
+      ...ticket,
       holder,
       assignedEmail: ticket.assignedEmail || ticket.attendeeEmail,
       purchaserEmail: ticket.purchaserEmail || ticket.attendeeEmail,
       transferredTo: transferredAway ? assigned : undefined,
       qrPayload: holder ? ticket.qrPayload : undefined,
       qrToken: holder ? ticket.qrToken : undefined,
-      attendeePhone: holder ? ticket.attendeePhone : undefined,
-    } as IssuedTicket;
+    };
   });
 }

@@ -12,44 +12,36 @@
     "test:transfer": "node scripts/assert-transfer-security.mjs"
   },
   "dependencies": {
-    "@capacitor/core": "^7.6.9",
-    "@capacitor/preferences": "^7.0.4",
-    "@serwist/next": "^9.5.12",
+    "@serwist/next": "9.0.14",
     "@stripe/stripe-js": "4.10.0",
     "@tanstack/react-query": "5.62.16",
-    "axios": "^1.20.0",
+    "axios": "1.19.0",
     "bcryptjs": "2.4.3",
     "clsx": "2.1.1",
     "date-fns": "4.1.0",
+    "flutterwave-react-v3": "1.3.2",
     "html5-qrcode": "2.3.8",
     "jose": "5.9.6",
     "lucide-react": "0.468.0",
-    "next": "^15.5.25",
+    "next": "15.5.23",
     "qrcode.react": "4.2.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "serwist": "^9.5.12",
+    "serwist": "9.0.14",
     "stripe": "17.5.0",
     "zod": "3.24.1"
   },
   "devDependencies": {
-    "@capacitor/android": "^7.6.9",
-    "@capacitor/cli": "^7.6.9",
-    "@capacitor/ios": "^7.6.9",
     "@types/bcryptjs": "2.4.6",
     "@types/node": "22.10.2",
     "@types/react": "18.3.16",
     "@types/react-dom": "18.3.5",
     "autoprefixer": "10.4.20",
-    "postcss": "^8.5.28",
+    "postcss": "8.5.26",
     "tailwindcss": "3.4.17",
     "typescript": "5.7.2"
   },
   "engines": {
     "node": ">=18.18.0"
-  },
-  "overrides": {
-    "browserslist": "^4.28.9",
-    "postcss": "$postcss"
   }
 }

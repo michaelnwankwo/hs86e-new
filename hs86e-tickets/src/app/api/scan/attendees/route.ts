@@ -35,18 +35,6 @@ function asManifest(row: {
 }
 
 export async function GET(request: Request) {
-  try {
-    return await handleGet(request);
-  } catch (err) {
-    console.error("[hs86e] /api/scan/attendees recovered from unexpected failure:", err);
-    return NextResponse.json(
-      { error: "Attendee manifest is temporarily unavailable", attendees: [] },
-      { status: 503 },
-    );
-  }
-}
-
-async function handleGet(request: Request) {
   const session = await getStaffSessionFromCookies();
   if (!session) {
     return NextResponse.json({ error: "Staff session required" }, { status: 401 });

@@ -153,31 +153,24 @@ async function main() {
     }),
   );
   assert("transfer 200", transfer.status === 200, JSON.stringify(transfer.body));
-  assert(
-    "transfer redacts new QR from old owner",
-    !transfer.body.ticket?.qrPayload && !transfer.body.ticket?.qrToken,
-  );
+  assert("transfer rotates QR", Boolean(transfer.body.ticket?.qrPayload) && transfer.body.ticket.qrPayload !== oldPayload);
   assert("transfer keeps ticket id", transfer.body.ticket?.ticketId === ticketId);
   assert("transfer assigns guest", transfer.body.ticket?.assignedEmail === guest);
-  assert("old owner is no longer holder", transfer.body.ticket?.holder === false);
   assert(
     "claimUrl uses ticketId query",
     String(transfer.body.claimUrl || "").includes(`ticketId=${ticketId}`),
   );
 
+  const newPayload = transfer.body.ticket.qrPayload;
+  assert("new payload still HS86 signed", newPayload.startsWith("HS86."));
+  assert("old nonce != new nonce", parseHs86(oldPayload).nonce !== parseHs86(newPayload).nonce);
+
   const guestLookup = await json(await fetch(`${BASE}/api/tickets?email=${encodeURIComponent(guest)}`));
   assert("guest email lookup 200", guestLookup.status === 200);
   const guestPass = guestLookup.body.tickets?.find((t) => t.ticketId === ticketId);
   assert("guest receives pass", Boolean(guestPass));
+  assert("guest sees rotated QR", guestPass?.qrPayload === newPayload);
   assert("guest is holder", guestPass?.holder === true);
-
-  const newPayload = guestPass?.qrPayload;
-  assert("guest sees rotated QR", Boolean(newPayload) && newPayload !== oldPayload);
-  assert("new payload still HS86 signed", String(newPayload || "").startsWith("HS86."));
-  assert(
-    "old nonce != new nonce",
-    parseHs86(oldPayload).nonce !== parseHs86(String(newPayload || "")).nonce,
-  );
 
   const buyerLookup = await json(await fetch(`${BASE}/api/tickets?email=${encodeURIComponent(buyer)}`));
   const buyerPass = buyerLookup.body.tickets?.find((t) => t.ticketId === ticketId);

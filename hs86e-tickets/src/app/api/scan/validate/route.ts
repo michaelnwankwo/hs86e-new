@@ -35,7 +35,6 @@ function tokenRejected(ticket: IssuedTicket, raw: string): ScanValidateResponse 
     if (!verifyHs86Payload(parsed.ticketId, parsed.nonce, parsed.signature)) {
       return {
         verdict: "invalid",
-        revoked: true,
         ticketId: ticket.ticketId,
         message: "QR signature is not valid",
         passIndex: ticket.passIndex,
@@ -46,7 +45,6 @@ function tokenRejected(ticket: IssuedTicket, raw: string): ScanValidateResponse 
   if (!parsed.nonce || parsed.nonce !== ticket.qrToken) {
     return {
       verdict: "transferred",
-      revoked: true,
       ticketId: ticket.ticketId,
       attendeeName: ticket.attendeeName,
       tier: ticket.tier,
@@ -61,22 +59,6 @@ function tokenRejected(ticket: IssuedTicket, raw: string): ScanValidateResponse 
 }
 
 export async function POST(request: Request) {
-  try {
-    return await handlePost(request);
-  } catch (err) {
-    console.error("[hs86e] /api/scan/validate recovered from unexpected failure:", err);
-    return NextResponse.json(
-      {
-        verdict: "invalid",
-        ticketId: "",
-        message: "Verification service is temporarily unavailable — check the manifest and retry.",
-      } satisfies ScanValidateResponse,
-      { status: 503 },
-    );
-  }
-}
-
-async function handlePost(request: Request) {
   const session = await getStaffSessionFromCookies();
   if (!session) {
     return NextResponse.json({ error: "Staff session required" }, { status: 401 });

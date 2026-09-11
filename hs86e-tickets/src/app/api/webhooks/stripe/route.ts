@@ -8,16 +8,6 @@ import { ensureIssuedTickets } from "@/services/tickets/issue";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  try {
-    return await handlePost(request);
-  } catch (err) {
-    console.error("[hs86e] /api/webhooks/stripe recovered from unexpected failure:", err);
-    // 200-level acknowledgement is unsafe here: return 500 so Stripe retries.
-    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
-  }
-}
-
-async function handlePost(request: Request) {
   const signature = request.headers.get("stripe-signature");
   if (!signature) {
     return NextResponse.json({ error: "Missing stripe-signature" }, { status: 400 });

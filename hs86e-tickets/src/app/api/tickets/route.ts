@@ -27,24 +27,6 @@ function uniqueTickets(tickets: IssuedTicket[]) {
 }
 
 export async function GET(request: Request) {
-  try {
-    return await handleGet(request);
-  } catch (err) {
-    console.error("[hs86e] /api/tickets recovered from unexpected failure:", err);
-    return NextResponse.json(
-      { error: "Ticket lookup is temporarily unavailable", tickets: [] },
-      { status: 503 },
-    );
-  }
-}
-
-async function handleGet(request: Request) {
-  // NOTE: the per-IP rate limit previously on this route was removed
-  // (product decision) because shared/CGNAT egress IPs made 429s hit
-  // legitimate buyers and freeze the wallet UI. Enumeration protection is
-  // instead provided by unguessable ticket IDs and holder-scoped QR
-  // redaction in presentForViewer.
-
   const { searchParams } = new URL(request.url);
   const ticketQuery = (
     searchParams.get("ticket") ||

@@ -80,43 +80,5 @@
       "url": "/scan",
       "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
     }
-  ],
-  "widgets": [
-    {
-      "name": "Next Event Countdown",
-      "short_name": "Countdown",
-      "description": "Live countdown to the next HS86E event doors and showtime.",
-      "tag": "next-event-countdown",
-      "template": "countdown",
-      "data": "/api/widgets/next-event-countdown",
-      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }],
-      "screenshots": [
-        {
-          "src": "/icons/icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png",
-          "form_factor": "narrow",
-          "label": "Countdown"
-        }
-      ]
-    },
-    {
-      "name": "Quick Ticket Pass",
-      "short_name": "Ticket",
-      "description": "Show your active ticket QR at the door without opening the app.",
-      "tag": "quick-ticket-pass",
-      "template": "ticket",
-      "data": "/api/widgets/quick-ticket-pass",
-      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }],
-      "screenshots": [
-        {
-          "src": "/icons/icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png",
-          "form_factor": "narrow",
-          "label": "Ticket pass"
-        }
-      ]
-    }
   ]
 }

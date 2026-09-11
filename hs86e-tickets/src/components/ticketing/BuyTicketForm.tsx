@@ -187,7 +187,7 @@ export function BuyTicketForm({ event }: { event: EventProduct }) {
         {busy
           ? "Opening checkout…"
           : total === 0
-            ? "GET TICKETS"
+            ? "Join the waitlist"
             : `Pay ${formatMoney(total, event.currency)}`}
       </Button>
       <p className="text-center text-[11px] text-ink-dim">

@@ -1,4 +1,3 @@
-import { timingSafeEqual } from "node:crypto";
 import axios from "axios";
 import { appUrl, getEnv } from "@/lib/env";
 
@@ -57,11 +56,8 @@ export async function createFlutterwavePayment(input: {
 
 export function verifyFlutterwaveHash(headerHash: string | null) {
   const expected = getEnv().FLW_WEBHOOK_HASH;
-  if (!expected || !headerHash) return false;
-  const left = Buffer.from(headerHash);
-  const right = Buffer.from(expected);
-  if (left.length !== right.length) return false;
-  return timingSafeEqual(left, right);
+  if (!expected) return false;
+  return Boolean(headerHash) && headerHash === expected;
 }
 
 export async function verifyFlutterwaveTransaction(id: string | number) {

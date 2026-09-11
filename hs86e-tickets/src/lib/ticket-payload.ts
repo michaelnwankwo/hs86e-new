@@ -67,6 +67,10 @@ export function decodeTicketPayload(raw: string): string {
   return parseTicketPayload(raw).ticketId;
 }
 
+export function mintTicketId(orderId: number, index: number) {
+  return `TKT-${orderId}-${String(index + 1).padStart(2, "0")}`;
+}
+
 export function annotatePasses(tickets: IssuedTicket[]): IssuedTicket[] {
   const total = tickets.length;
   return tickets.map((ticket, index) => ({

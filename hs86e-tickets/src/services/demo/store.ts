@@ -32,15 +32,6 @@ interface DemoState {
 
 const FILE = join(process.cwd(), ".data", "demo-store.json");
 
-/**
- * In-memory mirror of the demo store. Serverless filesystems (e.g. Netlify
- * Functions) are read-only outside /tmp, so disk persistence can fail at
- * runtime; the mirror keeps demo checkout flowing for the life of the
- * instance, while hosts with writable disks keep full durability as before.
- */
-let memory: DemoState | null = null;
-let warnedPersist = false;
-
 function emptyState(): DemoState {
   return { nextOrderId: 86001, orders: [] };
 }
@@ -48,27 +39,15 @@ function emptyState(): DemoState {
 function load(): DemoState {
   try {
     const raw = readFileSync(FILE, "utf8");
-    memory = JSON.parse(raw) as DemoState;
+    return JSON.parse(raw) as DemoState;
   } catch {
-    if (!memory) memory = emptyState();
+    return emptyState();
   }
-  return memory;
 }
 
 function save(state: DemoState) {
-  memory = state;
-  try {
-    mkdirSync(dirname(FILE), { recursive: true });
-    writeFileSync(FILE, JSON.stringify(state, null, 2), "utf8");
-  } catch (err) {
-    if (!warnedPersist) {
-      warnedPersist = true;
-      console.warn(
-        "[hs86e] Demo store directory is not writable on this host — keeping demo orders in memory only.",
-        err,
-      );
-    }
-  }
+  mkdirSync(dirname(FILE), { recursive: true });
+  writeFileSync(FILE, JSON.stringify(state, null, 2), "utf8");
 }
 
 export function createDemoOrder(input: {

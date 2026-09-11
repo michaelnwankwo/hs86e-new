@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AUTH_RATE_MAX, AUTH_RATE_WINDOW_MS, STAFF_COOKIE } from "@/lib/constants";
 import { signStaffToken, staffCookieOptions, verifyStaffPin } from "@/lib/auth";
-import { hasScanSecret } from "@/lib/env";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 const schema = z.object({
@@ -25,32 +24,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "PIN is required" }, { status: 400 });
   }
 
-  // Fail closed with a clear JSON message when the signing secret is missing,
-  // instead of throwing an opaque server error at the door.
-  if (!hasScanSecret()) {
-    return NextResponse.json(
-      { error: "Scanner sign-in is not configured on the server. Set SCAN_JWT_SECRET (24+ characters)." },
-      { status: 503 },
-    );
-  }
-
   const ok = await verifyStaffPin(parsed.data.pin);
   if (!ok) {
     return NextResponse.json({ error: "Incorrect PIN" }, { status: 401 });
   }
 
-  try {
-    const token = await signStaffToken();
-    const response = NextResponse.json({ ok: true });
-    response.cookies.set(STAFF_COOKIE, token, staffCookieOptions());
-    return response;
-  } catch (err) {
-    console.error("[hs86e] Staff token signing failed:", err);
-    return NextResponse.json(
-      { error: "Scanner sign-in is temporarily unavailable" },
-      { status: 503 },
-    );
-  }
+  const token = await signStaffToken();
+  const response = NextResponse.json({ ok: true });
+  response.cookies.set(STAFF_COOKIE, token, staffCookieOptions());
+  return response;
 }
 
 export async function DELETE() {

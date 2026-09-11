@@ -3,26 +3,11 @@ import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { STAFF_COOKIE, STAFF_JWT_TTL } from "./constants";
-import { getEnvSafe } from "./env";
+import { getEnv } from "./env";
 import type { StaffSession } from "./types";
 
-/**
- * The door-scanner session secret is enforced HERE — at the only boundary that
- * genuinely needs it — instead of inside the global env schema, so a missing
- * SCAN_JWT_SECRET can never take down page rendering. Auth simply fails closed.
- */
-export function requireScanSecret(): string {
-  const secret = getEnvSafe().SCAN_JWT_SECRET;
-  if (!secret || secret.length < 24) {
-    throw new Error(
-      "SCAN_JWT_SECRET is not configured (24+ characters required). Scanner sign-in is unavailable until it is set.",
-    );
-  }
-  return secret;
-}
-
 function secretKey() {
-  return new TextEncoder().encode(requireScanSecret());
+  return new TextEncoder().encode(getEnv().SCAN_JWT_SECRET);
 }
 
 export async function signStaffToken() {
@@ -62,7 +47,7 @@ export function staffCookieOptions() {
 }
 
 export async function verifyStaffPin(pin: string) {
-  const env = getEnvSafe();
+  const env = getEnv();
   if (env.SCAN_STAFF_PIN_HASH) {
     return bcrypt.compare(pin, env.SCAN_STAFF_PIN_HASH);
   }

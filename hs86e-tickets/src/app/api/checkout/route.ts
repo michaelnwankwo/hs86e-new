@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { CHECKOUT_RATE_MAX, CHECKOUT_RATE_WINDOW_MS } from "@/lib/constants";
 import { appUrl, hasFlutterwave, hasStripe, hasWooCommerce, isDemoMode } from "@/lib/env";
-import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getEvent } from "@/services/catalog";
 import { createDemoOrder } from "@/services/demo/store";
 import { completeOrder, createPendingOrder } from "@/services/wp/woocommerce";
@@ -21,28 +19,6 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  try {
-    return await handleCheckout(request);
-  } catch (err) {
-    console.error("[hs86e] /api/checkout recovered from unexpected failure:", err);
-    return NextResponse.json(
-      { error: "Checkout is temporarily unavailable. Please try again shortly." },
-      { status: 503 },
-    );
-  }
-}
-
-async function handleCheckout(request: Request) {
-  // Throttle order creation to blunt checkout spam / order-ID flooding.
-  const ip = clientIp(request);
-  const limited = rateLimit(`checkout:${ip}`, CHECKOUT_RATE_MAX, CHECKOUT_RATE_WINDOW_MS);
-  if (!limited.ok) {
-    return NextResponse.json(
-      { error: "Too many checkout attempts. Wait and try again." },
-      { status: 429, headers: { "Retry-After": "900" } },
-    );
-  }
-
   const json = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {
