@@ -35,6 +35,8 @@ type InstallContextValue = {
 };
 
 const IOS_HINT_KEY = "hs86e_ios_install_hint";
+/** One-shot guard so a service-worker-triggered reload happens at most once per tab session. */
+const SW_RELOAD_KEY = "hs86e_sw_upgrade_reload";
 const InstallPromptContext = createContext<InstallContextValue | null>(null);
 
 function readStandalone() {
@@ -100,7 +102,25 @@ export function InstallPromptProvider({ children }: { children: ReactNode }) {
     window.addEventListener("hs86e-install-ready", onReady);
     window.addEventListener("appinstalled", onInstalled);
 
+    let onControllerChange: (() => void) | undefined;
     if ("serviceWorker" in navigator) {
+      // Deployment coherence: when a NEW service worker activates and takes
+      // control mid-session (skipWaiting + clientsClaim after a redeploy),
+      // this page's already-fetched JS chunks now belong to the OLD build
+      // while the new SW only precaches the NEW ones. Lazy chunk requests
+      // then 404, hydration fails, and any loading UI shipped in the SSR HTML
+      // would sit on screen forever. Reload ONCE so HTML, chunks, and the
+      // precache come from the same build. Skipped on the very first install,
+      // when nothing was controlling the page before.
+      const hadController = Boolean(navigator.serviceWorker.controller);
+      onControllerChange = () => {
+        if (!hadController) return;
+        if (sessionStorage.getItem(SW_RELOAD_KEY) === "1") return;
+        sessionStorage.setItem(SW_RELOAD_KEY, "1");
+        window.location.reload();
+      };
+      navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+
       const swUrl = process.env.NODE_ENV === "production" ? "/sw.js" : "/sw-dev.js";
       navigator.serviceWorker
         .register(swUrl, { scope: "/", updateViaCache: "none" })
@@ -116,6 +136,9 @@ export function InstallPromptProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("hs86e-install-ready", onReady);
       window.removeEventListener("appinstalled", onInstalled);
+      if (onControllerChange) {
+        navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      }
     };
   }, []);
 

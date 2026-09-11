@@ -22,6 +22,9 @@ body {
   min-height: 100%;
   background: var(--surface);
   color: var(--ink);
+  /* clip (not hidden) keeps position:sticky working while guaranteeing the
+     100vw full-bleed sections can never create horizontal scroll */
+  overflow-x: clip;
 }
 
 body {
@@ -82,6 +85,76 @@ button {
 
 .no-scrollbar {
   scrollbar-width: none;
+}
+
+/*
+ * Metallic logo sheen — a 45° highlight band swept across the gold logo,
+ * masked to the logo's own alpha so only the metallic surface glints.
+ * Cycle: 3s sweep + 4s pause = 7s period (sweep occupies 3/7 ≈ 42.857%).
+ * GPU-friendly: the band moves via translate3d only.
+ */
+.logo-sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: url(/logohs86e.png);
+  mask-image: url(/logohs86e.png);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.logo-sheen::after {
+  content: "";
+  position: absolute;
+  top: -25%;
+  bottom: -25%;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(243, 229, 171, 0.25) 35%,
+    rgba(255, 251, 235, 0.5) 50%,
+    rgba(243, 229, 171, 0.25) 65%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: translate3d(-160%, 0, 0);
+  animation: logo-sheen-sweep 7s linear infinite;
+  will-change: transform;
+  mix-blend-mode: screen;
+}
+
+@keyframes logo-sheen-sweep {
+  0% {
+    transform: translate3d(-160%, 0, 0);
+  }
+  /* 3s sweep completes at 3/7 of the 7s cycle… */
+  42.857% {
+    transform: translate3d(360%, 0, 0);
+  }
+  /* …then holds off-canvas for the 4s pause */
+  100% {
+    transform: translate3d(360%, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-sheen::after {
+    animation: none;
+    transform: translate3d(-160%, 0, 0);
+  }
+}
+
+/* Full-bleed #000000 stage for the /games teaser inside the max-w-3xl main */
+.games-fullbleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
 }
 
 .shimmer {

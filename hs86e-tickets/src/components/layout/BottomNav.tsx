@@ -2,13 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ScanLine, Ticket } from "lucide-react";
+import { CalendarDays, Gamepad2, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/**
+ * Mobile bottom tab bar — EVENTS → WALLET → GAMES.
+ * The public SCAN/DOOR tab is retired; staff reach the scanner through the
+ * stealth triple-tap on the header logo.
+ */
 const items = [
   { href: "/events", label: "Events", icon: CalendarDays },
-  { href: "/tickets", label: "Tickets", icon: Ticket },
-  { href: "/scan", label: "Scan", icon: ScanLine },
+  { href: "/tickets", label: "Wallet", icon: Wallet },
+  { href: "/games", label: "Games", icon: Gamepad2 },
 ];
 
 export function BottomNav() {
