@@ -24,7 +24,7 @@ export default async function EventsIndexPage() {
     <div className="px-4 py-6">
       <div className="mb-6">
         <h1 className="font-display text-3xl text-[#F8FAFC]">Events</h1>
-        <p className="mt-2 text-sm text-[#DFB260]/80">Live from WordPress · updates as you publish</p>
+        <p className="mt-2 text-sm text-[#DFB260]/80">Curated gatherings and upcoming live experiences.</p>
       </div>
       <EventList initial={catalog} />
     </div>
