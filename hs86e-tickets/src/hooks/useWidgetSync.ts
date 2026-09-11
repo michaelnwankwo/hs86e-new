@@ -17,7 +17,12 @@ import { syncActiveTicket, toActiveTicketSnapshot } from "@/lib/widget-storage";
 export function useWidgetSync(ticket: IssuedTicket | null | undefined): void {
   const snapshotKey = ticket ? JSON.stringify(toActiveTicketSnapshot(ticket)) : "";
   useEffect(() => {
-    void syncActiveTicket(ticket ?? null);
+    // Fire-and-forget AND rejection-proof: widget mirroring is a side channel
+    // and must never surface as an unhandled rejection during or after
+    // hydration (which on some runtimes aborts effect processing and leaves
+    // loading UI mounted). syncActiveTicket is internally guarded; the catch
+    // here is the last line of defence.
+    void Promise.resolve(syncActiveTicket(ticket ?? null)).catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snapshotKey]);
 }

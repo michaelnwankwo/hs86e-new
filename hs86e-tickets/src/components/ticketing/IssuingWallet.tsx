@@ -8,7 +8,16 @@ import { TicketWallet } from "./TicketWallet";
 import { patchWalletTicket, readWallet, writeWallet } from "@/lib/wallet-store";
 import { Button } from "@/components/ui/Button";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
+import { WalletSkeleton } from "@/components/ui/BrandLoader";
 import { useWidgetSync } from "@/hooks/useWidgetSync";
+
+/**
+ * Absolute ceiling for any single wallet lookup attempt chain. The fetch
+ * itself aborts at 15s and always settles through try/finally — this failsafe
+ * exists so that even a future logic bug or a suspended JS runtime can never
+ * leave the full-screen loader mounted past this point.
+ */
+const LOADER_FAILSAFE_MS = 20_000;
 
 interface LookupResult {
   tickets: IssuedTicket[];
@@ -145,6 +154,12 @@ export function IssuingWallet({
     let timer: number | undefined;
     let attempts = 0;
 
+    // Hard failsafe: independently force the loader off after a ceiling, even
+    // if a fetch promise is somehow never settled. Restarted with the effect.
+    const failsafe = window.setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, LOADER_FAILSAFE_MS);
+
     // Only ORDER lookups race with the payment webhook (which mints passes a
     // beat after the browser redirects), so only they get a short poll. A
     // ticket-ID or email lookup is definitive: a 404 means "no match" and we
@@ -202,6 +217,7 @@ export function IssuingWallet({
 
     return () => {
       cancelled = true;
+      window.clearTimeout(failsafe);
       if (timer) window.clearTimeout(timer);
     };
   }, [enabled, order, orderKey, email, ticket, reloadToken]);
@@ -213,7 +229,24 @@ export function IssuingWallet({
   }, []);
 
   const tickets = remote.length > 0 ? remote : local;
-  const overlay = !hydrated || loading;
+
+  /**
+   * Loader decoupling (infinite-spinner fix):
+   *
+   * - The full-screen LoadingOverlay is shown ONLY for an active, in-flight
+   *   lookup (`loading`). That state always settles — fetch try/finally,
+   *   15s AbortController, bounded polling, and a 20s hard failsafe.
+   *
+   * - The one-time storage hydration gate (`!hydrated`) NEVER shows the
+   *   overlay. Previously `overlay = !hydrated || loading` baked the fixed
+   *   full-screen spinner into the SSR HTML, so any client-side failure
+   *   (stale service-worker chunk after a redeploy, blocked script, dropped
+   *   mobile connection) kept the page scroll-locked behind the gold loader
+   *   forever. The in-flow skeleton below carries that state instead: the
+   *   header and lookup form stay visible and interactive even if hydration
+   *   is delayed, and the user is never trapped.
+   */
+  const overlay = loading;
 
   // Active pass for native/web widgets: the first pass that still holds a
   // live QR. Recomputes on load and after a transfer (which voids the QR),
@@ -285,7 +318,7 @@ export function IssuingWallet({
 
   return (
     <>
-      {body}
+      {hydrated ? body : <WalletSkeleton />}
       <LoadingOverlay isLoading={overlay} />
     </>
   );
