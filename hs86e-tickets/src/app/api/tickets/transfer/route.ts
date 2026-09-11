@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { TRANSFER_RATE_MAX, TRANSFER_RATE_WINDOW_MS, TRANSFER_TICKET_MAX } from "@/lib/constants";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { presentForViewer } from "@/services/tickets/ledger";
 import { TransferError, transferPass } from "@/services/tickets/transfer";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,21 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
+  try {
+    return await handlePost(request);
+  } catch (err) {
+    if (err instanceof TransferError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    console.error("[hs86e] /api/tickets/transfer recovered from unexpected failure:", err);
+    return NextResponse.json(
+      { error: "Ticket transfer is temporarily unavailable" },
+      { status: 503 },
+    );
+  }
+}
+
+async function handlePost(request: Request) {
   const ip = clientIp(request);
   const limited = rateLimit(`ticket-transfer:${ip}`, TRANSFER_RATE_MAX, TRANSFER_RATE_WINDOW_MS);
   if (!limited.ok) {
@@ -46,12 +62,14 @@ export async function POST(request: Request) {
 
   try {
     const result = await transferPass(parsed.data);
+    // Present the pass AS THE OLD OWNER sees it: holder=false, so the newly
+    // rotated QR payload/token are NOT returned to the person who transferred
+    // the pass away (their copy is void). The recipient gets the QR via their
+    // own authenticated-by-email lookup / claim link instead.
+    const presented = presentForViewer([result.ticket], parsed.data.fromEmail)[0];
     return NextResponse.json({
       ok: true,
-      ticket: {
-        ...result.ticket,
-        holder: true,
-      },
+      ticket: presented,
       claimUrl: result.claimUrl,
       emailSent: result.emailSent,
       message: result.emailSent

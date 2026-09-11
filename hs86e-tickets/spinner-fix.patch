@@ -1,0 +1,103 @@
+diff --git a/hs86e-tickets/src/components/ticketing/IssuingWallet.tsx b/hs86e-tickets/src/components/ticketing/IssuingWallet.tsx
+index 4958bee..25f414e 100644
+--- a/hs86e-tickets/src/components/ticketing/IssuingWallet.tsx
++++ b/hs86e-tickets/src/components/ticketing/IssuingWallet.tsx
+@@ -1,7 +1,7 @@
+ "use client";
+ 
+-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+-import { TICKET_POLL_ATTEMPTS, TICKET_POLL_MS } from "@/lib/constants";
++import { useCallback, useEffect, useMemo, useState } from "react";
++import { TICKET_POLL_MS } from "@/lib/constants";
+ import type { IssuedTicket } from "@/lib/types";
+ import { StatusBanner } from "@/components/ui/StatusBanner";
+ import { TicketWallet } from "./TicketWallet";
+@@ -35,13 +35,27 @@ async function fetchTickets(
+   if (key) params.set("key", key);
+   if (email) params.set("email", email);
+ 
++  // Abort hung requests so the loading state ALWAYS settles (spinner can
++  // never spin forever, even on a stalled proxy / serverless cold start).
++  const controller = new AbortController();
++  const timeout = setTimeout(() => controller.abort(), 15_000);
++
+   let res: Response;
+   try {
+-    res = await fetch(`/api/tickets?${params.toString()}`, { cache: "no-store" });
++    res = await fetch(`/api/tickets?${params.toString()}`, {
++      cache: "no-store",
++      signal: controller.signal,
++    });
+   } catch (err) {
++    clearTimeout(timeout);
+     return {
+       tickets: [],
+-      error: err instanceof Error ? err.message : "Network error",
++      error:
++        err instanceof Error && err.name === "AbortError"
++          ? "The request timed out. Check your connection and retry."
++          : err instanceof Error
++            ? err.message
++            : "Network error",
+       status: 0,
+     };
+   }
+@@ -61,8 +75,10 @@ async function fetchTickets(
+     }
+     errorMsg = payload?.error;
+   } catch {
++    clearTimeout(timeout);
+     return { tickets: [], error: `Server returned ${res.status}`, status: res.status };
+   }
++  clearTimeout(timeout);
+ 
+   if (!res.ok) {
+     return { tickets, error: errorMsg || `Server returned ${res.status}`, status: res.status };
+@@ -88,7 +104,6 @@ export function IssuingWallet({
+   const [lookupError, setLookupError] = useState<string | null>(null);
+   const [loading, setLoading] = useState(false);
+   const [reloadToken, setReloadToken] = useState(0);
+-  const attemptsRef = useRef(0);
+ 
+   // ---- hydrate passes already saved on this device --------------------------
+   useEffect(() => {
+@@ -119,7 +134,13 @@ export function IssuingWallet({
+ 
+     let cancelled = false;
+     let timer: number | undefined;
+-    attemptsRef.current = 0;
++    let attempts = 0;
++
++    // Only ORDER lookups race with the payment webhook (which mints passes a
++    // beat after the browser redirects), so only they get a short poll. A
++    // ticket-ID or email lookup is definitive: a 404 means "no match" and we
++    // render that empty state immediately — no endless spinner pulse.
++    const maxPoll = order ? 4 : 0;
+ 
+     async function lookup() {
+       if (cancelled) return;
+@@ -140,7 +161,7 @@ export function IssuingWallet({
+       }
+       if (cancelled) return;
+ 
+-      attemptsRef.current += 1;
++      attempts += 1;
+ 
+       if (result.tickets.length > 0) {
+         setRemote(result.tickets);
+@@ -159,11 +180,11 @@ export function IssuingWallet({
+         return;
+       }
+ 
+-      // Definitive empty response (404 "no match" or a 200 still issuing).
+-      // Poll a bounded number of times to catch passes that are mid-issue,
+-      // then settle into the empty state.
++      // Definitive empty response (404 "no match", or an order still being
++      // issued). Poll only briefly for order lookups, then settle into the
++      // empty state so the spinner never lingers.
+       setRemote([]);
+-      if (attemptsRef.current < TICKET_POLL_ATTEMPTS) {
++      if (attempts < maxPoll) {
+         timer = window.setTimeout(() => void lookup(), TICKET_POLL_MS);
+       }
+     }

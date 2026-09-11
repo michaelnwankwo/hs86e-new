@@ -1,5 +1,6 @@
 import { hasFooEventsAuth, hasWooCommerce } from "@/lib/env";
-import { annotatePasses, mintTicketId } from "@/lib/ticket-payload";
+import { annotatePasses } from "@/lib/ticket-payload";
+import { mintTicketId } from "@/lib/ticket-id";
 import { mintQrNonce, signTicketPayload } from "@/lib/ticket-token";
 import type { IssuedTicket } from "@/lib/types";
 import { fetchTicketsForOrder } from "@/services/wp/fooevents";
@@ -52,7 +53,7 @@ export function mintPassBatch(input: {
   const email = input.email.trim().toLowerCase();
   return annotatePasses(
     Array.from({ length: qty }, (_, index) => {
-      const ticketId = mintTicketId(input.orderId, index);
+      const ticketId = mintTicketId(input.orderId, index, input.orderKey);
       const qrToken = mintQrNonce();
       return sealPass(
         {

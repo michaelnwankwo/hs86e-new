@@ -4,8 +4,8 @@ import { Download } from "lucide-react";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 
 export function InstallAppButton() {
-  const { canInstall, install } = useInstallPrompt();
-  if (!canInstall) return null;
+  const { canPrompt, install } = useInstallPrompt();
+  if (!canPrompt) return null;
 
   return (
     <button

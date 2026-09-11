@@ -9,6 +9,18 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
+  try {
+    return await handlePost(request);
+  } catch (err) {
+    console.error("[hs86e] /api/demo/complete recovered from unexpected failure:", err);
+    return NextResponse.json(
+      { error: "Demo checkout is temporarily unavailable" },
+      { status: 503 },
+    );
+  }
+}
+
+async function handlePost(request: Request) {
   if (!isDemoMode()) {
     return NextResponse.json({ error: "Demo completion is disabled" }, { status: 403 });
   }

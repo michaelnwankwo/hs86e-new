@@ -1,5 +1,5 @@
 import { EventList } from "@/components/ticketing/EventList";
-import { listEventsResult } from "@/services/catalog";
+import { listEventsResult, type CatalogResult } from "@/services/catalog";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -9,7 +9,16 @@ export const metadata = {
 };
 
 export default async function EventsIndexPage() {
-  const catalog = await listEventsResult();
+  // listEventsResult() is designed to never reject; this guard ensures the
+  // events index renders its branded fallback UI even in the worst case.
+  const catalog = await listEventsResult().catch((err) => {
+    console.error("[hs86e] /events rendered with fallback catalog:", err);
+    return {
+      events: [] as CatalogResult["events"],
+      source: "wordpress" as const,
+      error: "Events are temporarily unavailable. Please check back shortly.",
+    };
+  });
 
   return (
     <div className="px-4 py-6">

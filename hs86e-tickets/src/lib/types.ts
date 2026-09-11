@@ -108,6 +108,8 @@ export interface ScanValidateRequest {
 export interface ScanValidateResponse {
   verdict: ScanVerdict;
   offline?: boolean;
+  /** True when the scanned pass's QR has been rotated/voided by a transfer. */
+  revoked?: boolean;
   ticketId: string;
   attendeeName?: string;
   attendeeEmail?: string;

@@ -10,13 +10,15 @@ export const revalidate = 0;
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const event = await getEvent(slug);
+  const event = await getEvent(slug).catch(() => null);
   return { title: event?.name ?? "Event" };
 }
 
 export default async function EventPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const event = await getEvent(slug);
+  // getEvent() never rejects; on any failure we fall through to the branded
+  // not-found page instead of a server-side exception.
+  const event = await getEvent(slug).catch(() => null);
   if (!event) notFound();
 
   const venueLine = [event.venue.name, event.venue.address, event.venue.city].filter(Boolean).join(" · ");
