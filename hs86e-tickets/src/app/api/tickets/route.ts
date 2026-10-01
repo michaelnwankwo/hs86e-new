@@ -13,7 +13,10 @@ import {
   ticketsForOrder,
   upsertIssuedTickets,
 } from "@/services/tickets/ledger";
-import { listCompletedOrderIdsByEmail } from "@/services/wp/woocommerce";
+import {
+  getOrder,
+  listCompletedOrderIdsByEmail,
+} from "@/services/wp/woocommerce";
 import type { IssuedTicket } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -80,8 +83,14 @@ async function handleGet(request: Request) {
       matched.push(...demo);
     } else if (hasWooCommerce()) {
       try {
-        const issued = await ensureIssuedTickets(orderId);
-        matched.push(...issued);
+        // Cancellation guard: only SETTLED orders may mint passes. A pending
+        // (cancelled/failed) order must never surface ticket assets, even if
+        // the buyer opens the checkout-success URL directly.
+        const order = await getOrder(orderId);
+        if (String(order.status || "").toLowerCase() === "completed") {
+          const issued = await ensureIssuedTickets(orderId);
+          matched.push(...issued);
+        }
       } catch {
         // ledger / demo already considered
       }
