@@ -4,7 +4,14 @@ export type TicketStatus = "Unpaid" | "Not Checked In" | "Checked In" | "Cancele
 
 export type PaymentGateway = "stripe" | "flutterwave";
 
-export type ScanVerdict = "valid" | "duplicate" | "invalid" | "canceled" | "transferred";
+export type ScanVerdict =
+  | "valid"
+  | "duplicate"
+  | "invalid"
+  | "canceled"
+  | "transferred"
+  /** v2 dynamic pass whose 30 s counter fell outside the ±1 window. */
+  | "expired";
 
 export interface EventVenue {
   name: string;
@@ -84,6 +91,13 @@ export interface IssuedTicket {
   qrToken?: string;
   /** Server-signed QR string. Client renders this; never recomputes HMAC. */
   qrPayload?: string;
+  /**
+   * RSG-ENG-SEC-006 Phase 2 — per-pass TOTP seed for the current holder only.
+   * Computed at presentation time (never persisted, never in the scanner
+   * manifest); the client imports it as a non-extractable WebCrypto key to
+   * rotate the v2 QR every 30 s.
+   */
+  totpSeed?: string;
   transferredTo?: string;
   transferredFrom?: string;
   transferredAt?: string;

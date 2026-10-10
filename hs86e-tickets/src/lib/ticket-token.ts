@@ -64,3 +64,55 @@ export function verifyHs86Payload(ticketId: string, nonce: string, signature: st
     return false;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * RSG-ENG-SEC-006 Phase 2 — 30 s TOTP dynamic payloads.
+ *
+ * The client never sees a master secret: it receives a per-pass seed
+ *   seed = HMAC-SHA256(master, "<ticketId>.<nonce>.hs86-totp-v2")
+ * which it imports as a non-extractable WebCrypto key and uses to sign
+ *   sig  = HMAC-SHA256(seed, "<ticketId>.<nonce>.<counter>")[0..22]
+ * The server re-derives the seed from its own master key to verify, so
+ * rotating TICKET_HMAC_SECRET/SCAN_JWT_SECRET keeps old seeds verifiable
+ * (same multi-key strategy as verifyHs86Payload).
+ * ------------------------------------------------------------------------- */
+
+/** Raw per-pass seed bytes for one master key. */
+function deriveTotpSeedBytes(ticketId: string, nonce: string, key: string) {
+  return createHmac("sha256", key).update(`${ticketId}.${nonce}.hs86-totp-v2`).digest();
+}
+
+function totpSigWith(seed: Buffer, ticketId: string, nonce: string, counter: number) {
+  return createHmac("sha256", seed)
+    .update(`${ticketId}.${nonce}.${counter}`)
+    .digest("base64url")
+    .slice(0, 22);
+}
+
+/** Base64url seed handed to the holder's device (never persisted, never bundled). */
+export function totpSeedForPresentation(ticketId: string, nonce: string): string | undefined {
+  try {
+    return deriveTotpSeedBytes(ticketId, nonce, primaryHmacKey()).toString("base64url");
+  } catch {
+    return undefined;
+  }
+}
+
+/** Timing-safe v2 signature check for one counter step, across all master keys. */
+export function verifyTotpPayload(
+  ticketId: string,
+  nonce: string,
+  counter: number,
+  signature: string,
+): boolean {
+  try {
+    return hmacKeys().some((key) =>
+      safeEqual(
+        signature,
+        totpSigWith(deriveTotpSeedBytes(ticketId, nonce, key), ticketId, nonce, counter),
+      ),
+    );
+  } catch {
+    return false;
+  }
+}

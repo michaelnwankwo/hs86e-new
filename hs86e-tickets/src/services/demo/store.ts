@@ -203,6 +203,25 @@ export function updateTicketStatus(
   });
 }
 
+/**
+ * CAS check-in (RSG-ENG-SEC-006 Phase 1): transition only when the pass is
+ * not already checked in, so concurrent scans cannot double-admit.
+ */
+export function checkInDemoTicket(
+  ticketId: string,
+  when: string,
+): { transitioned: boolean; ticket: IssuedTicket | null } {
+  const existing = findTicket(ticketId);
+  if (!existing) return { transitioned: false, ticket: null };
+  if (existing.status === "Checked In") {
+    return { transitioned: false, ticket: existing };
+  }
+  return {
+    transitioned: true,
+    ticket: updateDemoTicket(ticketId, { status: "Checked In", checkedInAt: when }),
+  };
+}
+
 export function updateDemoTicket(ticketId: string, patch: Partial<IssuedTicket>) {
   const state = load();
   for (const order of state.orders) {

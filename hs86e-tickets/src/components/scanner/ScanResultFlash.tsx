@@ -11,7 +11,10 @@ export function ScanResultFlash({ verdict }: { verdict: ScanVerdict | null }) {
         "pointer-events-none fixed inset-0 z-50 animate-flash-in",
         verdict === "valid" && "bg-emerald-bright/80",
         verdict === "duplicate" && "bg-amber-bright/75",
-        (verdict === "invalid" || verdict === "canceled" || verdict === "transferred") &&
+        (verdict === "invalid" ||
+          verdict === "canceled" ||
+          verdict === "transferred" ||
+          verdict === "expired") &&
           "bg-danger-bright/80",
       )}
       aria-hidden

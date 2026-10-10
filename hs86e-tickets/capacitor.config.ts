@@ -24,10 +24,16 @@ const config: CapacitorConfig = {
   appId: "com.hs86e.tickets",
   appName: "HS86E",
   webDir: "out",
-  // Uncomment and set your deployed HTTPS origin when running `npx cap sync`:
-  // server: { url: "https://hs86e.netlify.app", cleartext: false },
+  // RSG-ENG-SEC-006 Phase 3 — the shell loads the production Netlify origin
+  // over HTTPS (SSR + API routes stay live). Update if the domain changes.
+  server: {
+    url: "https://hs86eapp.netlify.app",
+    cleartext: false,
+  },
   android: {
     allowMixedContent: false,
+    // Screenshots/recordings blocked at the OS level by the local
+    // ScreenShield plugin (FLAG_SECURE) — see native/README.md.
   },
   ios: {
     contentInset: "always",

@@ -8,6 +8,7 @@ import type { IssuedTicket } from "@/lib/types";
 import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
 import { QRTicket } from "./QRTicket";
+import { LivePassFrame } from "./LivePassFrame";
 import { DownloadTicketButton } from "./DownloadTicketButton";
 import { TransferTicketModal } from "./TransferTicketModal";
 
@@ -158,9 +159,11 @@ export function TicketCard({
                 </p>
               </div>
             ) : showQr ? (
-              <div id={svgId}>
-                <QRTicket ticket={ticket} ticketId={ticket.ticketId} size={220} />
-              </div>
+              <LivePassFrame ticket={ticket}>
+                <div id={svgId}>
+                  <QRTicket ticket={ticket} ticketId={ticket.ticketId} size={220} />
+                </div>
+              </LivePassFrame>
             ) : (
               <div className="rounded-2xl border border-[#DFB260]/20 bg-[#0B0E14] px-4 py-8 text-center text-sm text-[#DFB260]/80">
                 {ticket.status}

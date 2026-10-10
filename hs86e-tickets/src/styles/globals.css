@@ -216,3 +216,87 @@ nextjs-portal,
 .nextjs-toast-errors-parent {
   display: none !important;
 }
+
+/* ==========================================================================
+   RSG-ENG-SEC-006 Phase 1 — gate anti-spoof assets (brand-gold liveness)
+   ========================================================================== */
+
+.gate-clock {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+}
+
+/* 1.5 s GPU sweep bar across the top of the QR frame */
+.gate-sweep {
+  display: block;
+  height: 3px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(212, 175, 55, 0.15);
+}
+
+.gate-sweep::after {
+  content: "";
+  display: block;
+  height: 100%;
+  width: 40%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #d4af37 30%,
+    #dfb260 50%,
+    #c5a059 70%,
+    transparent 100%
+  );
+  transform: translate3d(-110%, 0, 0);
+  animation: gate-sweep 1.5s linear infinite;
+  will-change: transform;
+}
+
+@keyframes gate-sweep {
+  to {
+    transform: translate3d(280%, 0, 0);
+  }
+}
+
+/* Tap-flip 3D pass card */
+.gate-flip-scene {
+  perspective: 1200px;
+}
+
+.gate-flip {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.45s ease;
+}
+
+.gate-flip--on {
+  transform: rotateY(180deg);
+}
+
+.gate-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.gate-face--back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gate-sweep::after {
+    animation: none;
+    transform: none;
+    opacity: 0.6;
+  }
+  .gate-flip {
+    transition: none;
+  }
+}

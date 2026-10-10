@@ -18,6 +18,8 @@ import { AttendeeResultCard } from "./AttendeeResultCard";
 import { CameraFeed } from "./CameraFeed";
 import { OfflineQueueBadge } from "./OfflineQueueBadge";
 import { ScanResultFlash } from "./ScanResultFlash";
+import { ScreenShieldAlert } from "@/components/ticketing/ScreenShieldAlert";
+import { useScreenShield } from "@/lib/native-shield";
 
 const CAMERA_ID = "hs86e-camera";
 
@@ -32,6 +34,9 @@ function rememberLocal(ticketId: string) {
 }
 
 export function ScannerView({ events }: { events: EventProduct[] }) {
+  // RSG-ENG-SEC-006 Phase 3 — Android FLAG_SECURE + iOS screenshot alert
+  // on the gate surface (attendee data must not be capturable).
+  const { alertOpen, dismissAlert } = useScreenShield();
   const [eventId, setEventId] = useState(events[0]?.id ?? "");
   const [flash, setFlash] = useState<ScanVerdict | null>(null);
   const [result, setResult] = useState<ScanValidateResponse | null>(null);
@@ -46,7 +51,7 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
       setResult(next);
       setFlash(next.verdict);
       if (next.verdict === "valid") await play("success");
-      else if (next.verdict === "duplicate") await play("warn");
+      else if (next.verdict === "duplicate" || next.verdict === "expired") await play("warn");
       else {
         await play("fail");
         if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(200);
@@ -203,6 +208,7 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
   return (
     <div className="mx-auto max-w-lg px-4 pb-8 pt-4">
       <ScanResultFlash verdict={flash} />
+      <ScreenShieldAlert open={alertOpen} onDismiss={dismissAlert} />
       <div className="mb-4 flex items-center justify-end gap-3">
         <OfflineQueueBadge pending={pendingCount} online={online} syncing={syncing} />
       </div>

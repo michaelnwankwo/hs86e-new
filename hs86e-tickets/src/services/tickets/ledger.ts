@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { currentOwnerEmail, purchaserOf } from "@/lib/ticket-payload";
+import { totpSeedForPresentation } from "@/lib/ticket-token";
 import type { IssuedTicket, TicketTransferRecord } from "@/lib/types";
 
 interface Ledger {
@@ -100,6 +101,28 @@ export function updateLedgerTicket(
   return ledger.tickets[idx];
 }
 
+/**
+ * CAS check-in (RSG-ENG-SEC-006 Phase 1): atomically transition a pass to
+ * "Checked In". A second writer for the same ticketId observes
+ * `transitioned: false` so the gate answers ALREADY SCANNED instead of
+ * double-admitting under concurrent scans.
+ */
+export function checkInLedgerTicket(
+  ticketId: string,
+  when: string,
+): { transitioned: boolean; ticket: IssuedTicket | null } {
+  const ledger = load();
+  const idx = ledger.tickets.findIndex((ticket) => ticket.ticketId === ticketId);
+  if (idx < 0) return { transitioned: false, ticket: null };
+  const current = ledger.tickets[idx];
+  if (current.status === "Checked In") {
+    return { transitioned: false, ticket: current };
+  }
+  ledger.tickets[idx] = { ...current, status: "Checked In", checkedInAt: when };
+  save(ledger);
+  return { transitioned: true, ticket: ledger.tickets[idx] };
+}
+
 export function allLedgerTickets() {
   return load().tickets;
 }
@@ -146,6 +169,12 @@ export function presentForViewer(
       transferredTo: transferredAway ? assigned : undefined,
       qrPayload: holder ? ticket.qrPayload : undefined,
       qrToken: holder ? ticket.qrToken : undefined,
+      // Phase 2 (RSG-ENG-SEC-006): per-pass TOTP seed, holder-only, computed
+      // on the fly so it is never persisted to the ledger file.
+      totpSeed:
+        holder && ticket.qrToken
+          ? totpSeedForPresentation(ticket.ticketId, ticket.qrToken)
+          : undefined,
       attendeePhone: holder ? ticket.attendeePhone : undefined,
     } as IssuedTicket;
   });

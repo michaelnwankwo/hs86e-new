@@ -5,6 +5,8 @@ export interface ParsedTicketPayload {
   nonce?: string;
   signature?: string;
   signed: boolean;
+  /** Present only on v2 dynamic payloads: `HS86.<id>.<nonce>.<counter>.<sig>`. */
+  counter?: number;
 }
 
 /** Unique QR payload per pass — never order-id-only or email-only. */
@@ -20,6 +22,25 @@ export function parseTicketPayload(raw: string): ParsedTicketPayload {
 
   if (value.startsWith("HS86.")) {
     const parts = value.split(".");
+    // v2 dynamic (RSG-ENG-SEC-006 Phase 2): HS86.<id>.<nonce>.<counter>.<sig>
+    if (
+      parts.length === 5 &&
+      parts[0] === "HS86" &&
+      parts[1] &&
+      parts[2] &&
+      parts[3] &&
+      parts[4] &&
+      /^\d+$/.test(parts[3])
+    ) {
+      return {
+        ticketId: parts[1],
+        nonce: parts[2],
+        counter: Number(parts[3]),
+        signature: parts[4],
+        signed: true,
+      };
+    }
+    // v1 static: HS86.<id>.<nonce>.<sig> — kept for backwards compatibility.
     if (parts.length === 4 && parts[0] === "HS86" && parts[1] && parts[2] && parts[3]) {
       return {
         ticketId: parts[1],

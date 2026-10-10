@@ -3,11 +3,12 @@ import { z } from "zod";
 import { getStaffSessionFromCookies } from "@/lib/auth";
 import { isDemoMode } from "@/lib/env";
 import { decodeTicketPayload, parseTicketPayload } from "@/lib/ticket-payload";
-import { verifyHs86Payload } from "@/lib/ticket-token";
+import { verifyHs86Payload, verifyTotpPayload } from "@/lib/ticket-token";
+import { totpCounter } from "@/lib/pass-security";
 import { isTicketIdShape } from "@/lib/utils";
-import { findTicket, updateTicketStatus } from "@/services/demo/store";
+import { checkInDemoTicket, findTicket } from "@/services/demo/store";
 import { checkInTicket } from "@/services/wp/fooevents";
-import { ticketById, ticketsForOrder, updateLedgerTicket } from "@/services/tickets/ledger";
+import { checkInLedgerTicket, ticketById, ticketsForOrder } from "@/services/tickets/ledger";
 import type { IssuedTicket, ScanValidateResponse } from "@/lib/types";
 import { TRANSFER_VOID_MESSAGE, TRANSFER_VOID_STATUS } from "@/lib/constants";
 
@@ -21,16 +22,110 @@ const schema = z.object({
 function passMessage(ticket: IssuedTicket, used: boolean) {
   const index = ticket.passIndex || 1;
   const total = ticket.passTotal || ticketsForOrder(ticket.orderId).length || 1;
-  return used ? "TICKET ALREADY USED" : `Ticket ${index} of ${total} checked in`;
+  // RSG-ENG-SEC-006 §1.1 — directive-exact rejection copy on re-scan.
+  return used
+    ? "ALREADY SCANNED / ADMISSION DENIED"
+    : `Ticket ${index} of ${total} checked in`;
+}
+
+// RSG-ENG-SEC-006 Phase 2 — directive-exact copy for stale dynamic passes.
+const EXPIRED_TOKEN_MESSAGE = "EXPIRED TOKEN";
+
+/**
+ * RSG-ENG-SEC-006 Phase 1 — per-ticket in-instance serialization. Two staff
+ * devices hitting this fork in the same millisecond queue behind each other;
+ * the CAS in checkIn*Ticket() then guarantees a single admission.
+ */
+const gateLocks = new Map<string, Promise<void>>();
+
+async function withTicketLock(
+  ticketId: string,
+  run: () => Promise<NextResponse>,
+): Promise<NextResponse> {
+  const prev = gateLocks.get(ticketId) ?? Promise.resolve();
+  let release!: () => void;
+  const done = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = prev.then(
+    () => done,
+    () => done,
+  );
+  gateLocks.set(ticketId, tail);
+  await prev.catch(() => undefined);
+  try {
+    return await run();
+  } finally {
+    release();
+    if (gateLocks.get(ticketId) === tail) gateLocks.delete(ticketId);
+  }
 }
 
 function resolveTicket(ticketId: string) {
   return ticketById(ticketId) || findTicket(ticketId);
 }
 
-function tokenRejected(ticket: IssuedTicket, raw: string): ScanValidateResponse | null {
+function tokenRejected(
+  ticket: IssuedTicket,
+  raw: string,
+  scannedAt?: string,
+): ScanValidateResponse | null {
   if (!ticket.qrToken) return null;
   const parsed = parseTicketPayload(raw);
+
+  // v2 dynamic payload (RSG-ENG-SEC-006 Phase 2): HS86.<id>.<nonce>.<counter>.<sig>
+  if (parsed.signed && parsed.counter !== undefined && parsed.nonce && parsed.signature) {
+    if (parsed.nonce !== ticket.qrToken) {
+      return {
+        verdict: "transferred",
+        revoked: true,
+        ticketId: ticket.ticketId,
+        attendeeName: ticket.attendeeName,
+        tier: ticket.tier,
+        eventName: ticket.eventName,
+        message: TRANSFER_VOID_MESSAGE,
+        statusLabel: TRANSFER_VOID_STATUS,
+        passIndex: ticket.passIndex,
+        passTotal: ticket.passTotal,
+      };
+    }
+    if (!verifyTotpPayload(ticket.ticketId, ticket.qrToken, parsed.counter, parsed.signature)) {
+      return {
+        verdict: "invalid",
+        revoked: true,
+        ticketId: ticket.ticketId,
+        message: "QR signature is not valid",
+        passIndex: ticket.passIndex,
+        passTotal: ticket.passTotal,
+      };
+    }
+    const withinWindow = Math.abs(parsed.counter - totpCounter()) <= 1;
+    // Delayed-sync binding: offline-queued scans replay later with their
+    // ORIGINAL scannedAt — accept a stale counter when its signature matches
+    // the step the scan actually happened in (same replay exposure class as
+    // today's static v1 tokens, but time-bounded).
+    const scannedMs = scannedAt ? Date.parse(scannedAt) : Number.NaN;
+    const replayBound =
+      Number.isFinite(scannedMs) &&
+      Math.abs(parsed.counter - totpCounter(scannedMs)) <= 1;
+    if (!withinWindow && !replayBound) {
+      return {
+        verdict: "expired",
+        revoked: true,
+        ticketId: ticket.ticketId,
+        attendeeName: ticket.attendeeName,
+        tier: ticket.tier,
+        eventName: ticket.eventName,
+        message: EXPIRED_TOKEN_MESSAGE,
+        statusLabel: EXPIRED_TOKEN_MESSAGE,
+        passIndex: ticket.passIndex,
+        passTotal: ticket.passTotal,
+      };
+    }
+    return null;
+  }
+
+  // v1 static payload — unchanged behavior (offline IDB manifest fallback).
   if (parsed.signed && parsed.nonce && parsed.signature) {
     if (!verifyHs86Payload(parsed.ticketId, parsed.nonce, parsed.signature)) {
       return {
@@ -100,7 +195,7 @@ async function handlePost(request: Request) {
   const local = resolveTicket(ticketId);
 
   if (local) {
-    const revoked = tokenRejected(local, raw);
+    const revoked = tokenRejected(local, raw, scannedAt);
     if (revoked) return NextResponse.json(revoked);
 
     if (local.eventId && eventId && local.eventId !== eventId) {
@@ -127,40 +222,65 @@ async function handlePost(request: Request) {
         passTotal: local.passTotal,
       } satisfies ScanValidateResponse);
     }
-    if (local.status === "Checked In") {
-      return NextResponse.json({
-        verdict: "duplicate",
-        ticketId,
-        attendeeName: local.attendeeName,
-        attendeeEmail: local.attendeeEmail,
-        attendeePhone: local.attendeePhone,
-        tier: local.tier,
-        eventName: local.eventName,
-        checkedInAt: local.checkedInAt,
-        message: passMessage(local, true),
-        passIndex: local.passIndex,
-        passTotal: local.passTotal,
-      } satisfies ScanValidateResponse);
-    }
+    // RSG-ENG-SEC-006 Phase 1 — serialize the state change per ticketId and
+    // CAS the status flip so two staff devices scanning the same pass at the
+    // same instant cannot both admit it.
+    return await withTicketLock(ticketId, async () => {
+      const fresh = resolveTicket(ticketId);
+      if (fresh?.status === "Checked In") {
+        return NextResponse.json({
+          verdict: "duplicate",
+          ticketId,
+          attendeeName: fresh.attendeeName,
+          attendeeEmail: fresh.attendeeEmail,
+          attendeePhone: fresh.attendeePhone,
+          tier: fresh.tier,
+          eventName: fresh.eventName,
+          checkedInAt: fresh.checkedInAt,
+          message: passMessage(fresh, true),
+          passIndex: fresh.passIndex,
+          passTotal: fresh.passTotal,
+        } satisfies ScanValidateResponse);
+      }
 
-    updateLedgerTicket(ticketId, { status: "Checked In", checkedInAt: when });
-    updateTicketStatus(ticketId, "Checked In", when);
-    const siblings = ticketsForOrder(local.orderId);
-    const total = local.passTotal || siblings.length || 1;
-    const index = local.passIndex || 1;
-    return NextResponse.json({
-      verdict: "valid",
-      ticketId,
-      attendeeName: local.attendeeName,
-      attendeeEmail: local.attendeeEmail,
-      attendeePhone: local.attendeePhone,
-      tier: local.tier,
-      eventName: local.eventName,
-      checkedInAt: when,
-      message: `Ticket ${index} of ${total} checked in`,
-      passIndex: index,
-      passTotal: total,
-    } satisfies ScanValidateResponse);
+      // CAS: exactly one caller can flip this pass to Checked In.
+      const ledgerCas = checkInLedgerTicket(ticketId, when);
+      const demoCas = checkInDemoTicket(ticketId, when);
+      if (!ledgerCas.transitioned && !demoCas.transitioned) {
+        const seen = fresh ?? local;
+        return NextResponse.json({
+          verdict: "duplicate",
+          ticketId,
+          attendeeName: seen.attendeeName,
+          attendeeEmail: seen.attendeeEmail,
+          attendeePhone: seen.attendeePhone,
+          tier: seen.tier,
+          eventName: seen.eventName,
+          checkedInAt: seen.checkedInAt,
+          message: passMessage(seen, true),
+          passIndex: seen.passIndex,
+          passTotal: seen.passTotal,
+        } satisfies ScanValidateResponse);
+      }
+
+      const checked = ledgerCas.ticket ?? demoCas.ticket ?? local;
+      const siblings = ticketsForOrder(checked.orderId);
+      const total = checked.passTotal || siblings.length || 1;
+      const index = checked.passIndex || 1;
+      return NextResponse.json({
+        verdict: "valid",
+        ticketId,
+        attendeeName: checked.attendeeName,
+        attendeeEmail: checked.attendeeEmail,
+        attendeePhone: checked.attendeePhone,
+        tier: checked.tier,
+        eventName: checked.eventName,
+        checkedInAt: when,
+        message: `Ticket ${index} of ${total} checked in`,
+        passIndex: index,
+        passTotal: total,
+      } satisfies ScanValidateResponse);
+    });
   }
 
   if (isDemoMode()) {
@@ -183,7 +303,7 @@ async function handlePost(request: Request) {
     checkedInAt: result.ticket?.checkedInAt || (result.verdict === "valid" ? when : undefined),
     message:
       result.verdict === "duplicate"
-        ? "TICKET ALREADY USED"
+        ? "ALREADY SCANNED / ADMISSION DENIED"
         : result.verdict === "valid"
           ? result.message
           : result.message,
