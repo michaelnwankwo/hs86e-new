@@ -42,6 +42,9 @@ function normalizeStatus(raw: string): TicketStatus {
     if (v.includes("unpaid") || v === "u") return "Unpaid";
     return "Canceled";
   }
+  // Negation MUST be tested first: "Not Checked In" contains "checked", so
+  // the positive branch below would misread fresh tickets as already used.
+  if (!v || v.startsWith("not") || v === "n" || v === "no") return "Not Checked In";
   if (v.includes("checked") || v === "c" || v === "yes") return "Checked In";
   return "Not Checked In";
 }
@@ -237,8 +240,12 @@ export async function checkInTicket(input: {
         const forbidden = status === 403 || /rest_forbidden/i.test(detail);
         console.error(
           `[hs86e] FooEvents auth rejected (HTTP ${status}). WordPress said: ${detail}. ` +
-            "Netlify env: WP_BASE_URL, WP_APP_USER (login slug), WP_APP_PASSWORD " +
-            "(Application Password).",
+            (forbidden
+              ? "PERMISSION FIX: FooEvents restricts check-ins to Administrators by default. " +
+                "Either set the WP_APP_USER account to Administrator, or keep its role and grant the " +
+                "'app_event_magic_tickets' capabilities (User Role Editor → filter 'event_magic_ticket'). "
+              : "Netlify env: WP_BASE_URL, WP_APP_USER (login slug), WP_APP_PASSWORD " +
+                "(Application Password). "),
         );
         return {
           verdict: "invalid" as const,
@@ -247,7 +254,7 @@ export async function checkInTicket(input: {
             : badPassword
               ? "WordPress rejected WP_APP_PASSWORD. Regenerate the hs86e-scanner Application Password and update Netlify."
               : forbidden
-                ? "WordPress refused the check-in (403). The hs86e-scanner user lacks FooEvents write permission — grant Shop manager or administrator."
+                ? "WordPress refused the check-in (403). FooEvents allows Administrator only by default — make hs86e-scanner an Administrator, or grant its role the app_event_magic_tickets capabilities."
                 : "FooEvents check-in failed. Confirm the hs86e-scanner Application Password.",
         };
       }
