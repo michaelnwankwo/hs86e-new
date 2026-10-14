@@ -16,6 +16,9 @@ type Html5QrcodeInstance = {
   getRunningTrackCapabilities?: () => MediaTrackCapabilities;
 };
 
+/** Delay before an automatic camera restart after a failure (RSG gate spec). */
+const SCANNER_RETRY_MS = 2500;
+
 export function useQrScanner(
   elementId: string,
   onScan: (value: string) => void,
@@ -29,7 +32,21 @@ export function useQrScanner(
   const [error, setError] = useState<string | null>(null);
   const [torchOn, setTorchOn] = useState(false);
   const [torchAvailable, setTorchAvailable] = useState(false);
+  const [restartToken, setRestartToken] = useState(0);
   const onScanRef = useRef(onScan);
+
+  /**
+   * Hard reset of the decode loop: clears the error state, unpauses frame
+   * handling and remounts the camera. Called automatically after backend
+   * failures so the viewfinder never stays locked on an error.
+   */
+  const reset = useCallback(() => {
+    lastValue.current = "";
+    lastAt.current = 0;
+    paused.current = false;
+    setError(null);
+    setRestartToken((token) => token + 1);
+  }, []);
 
   useEffect(() => {
     onScanRef.current = onScan;
@@ -53,10 +70,21 @@ export function useQrScanner(
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    let retryTimer: number | undefined;
 
     async function start() {
       setError(null);
       try {
+        // Release any half-initialized instance first — html5-qrcode throws
+        // "already running" if a previous attempt is still attached.
+        const previous = scannerRef.current;
+        scannerRef.current = null;
+        if (previous) {
+          await previous
+            .stop()
+            .then(() => previous.clear())
+            .catch(() => undefined);
+        }
         const mod = await import("html5-qrcode");
         if (cancelled) return;
         const Html5Qrcode = mod.Html5Qrcode;
@@ -80,12 +108,26 @@ export function useQrScanner(
         }
         setReady(true);
       } catch (err) {
+        const reason =
+          err instanceof Error ? err.message : "Camera is unavailable on this device.";
+        console.error("[hs86e] camera start failed:", reason);
         setError(
-          err instanceof Error
-            ? err.message
-            : "Camera permission is required to scan tickets.",
+          /permission|denied|notallowed/i.test(reason)
+            ? "Camera permission is required to scan tickets. Allow camera access, then reopen /scan."
+            : `Camera unavailable — retrying in ${SCANNER_RETRY_MS / 1000}s. (${reason})`,
         );
         setReady(false);
+        // Self-healing: a failed start must never leave the gate with a dead
+        // viewfinder. Retry on a delay instead of requiring a hard refresh.
+        // A permission denial is not retryable from inside the page (the user
+        // must grant access), so that case surfaces guidance instead.
+        const permissionDenied = /permission|denied|notallowed/i.test(reason);
+        if (!permissionDenied && !cancelled) {
+          retryTimer = window.setTimeout(() => {
+            retryTimer = undefined;
+            if (!cancelled) void start();
+          }, SCANNER_RETRY_MS);
+        }
       }
     }
 
@@ -93,6 +135,7 @@ export function useQrScanner(
 
     return () => {
       cancelled = true;
+      if (retryTimer) window.clearTimeout(retryTimer);
       const scanner = scannerRef.current;
       scannerRef.current = null;
       setReady(false);
@@ -103,7 +146,7 @@ export function useQrScanner(
           .catch(() => undefined);
       }
     };
-  }, [elementId, enabled, handleDecoded]);
+  }, [elementId, enabled, handleDecoded, restartToken]);
 
   const toggleTorch = useCallback(async () => {
     const scanner = scannerRef.current;
@@ -127,5 +170,5 @@ export function useQrScanner(
     paused.current = false;
   }, []);
 
-  return { ready, error, torchOn, torchAvailable, toggleTorch, pause, resume };
+  return { ready, error, torchOn, torchAvailable, toggleTorch, pause, resume, reset };
 }

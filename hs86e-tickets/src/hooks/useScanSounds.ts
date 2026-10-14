@@ -17,7 +17,12 @@ export function useScanSounds() {
       ctxRef.current = new Ctx();
     }
     if (ctxRef.current.state === "suspended") {
-      await ctxRef.current.resume();
+      // iOS Safari can leave resume() unsettled without a gesture — never let
+      // the audio unlock stall the scan pipeline (RSG gate recovery fix).
+      await Promise.race([
+        ctxRef.current.resume().catch(() => undefined),
+        new Promise((resolve) => window.setTimeout(resolve, 1200)),
+      ]);
     }
     return ctxRef.current;
   }, []);

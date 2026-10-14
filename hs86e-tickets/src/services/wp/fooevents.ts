@@ -198,7 +198,7 @@ export async function checkInTicket(input: {
       timestamp: input.scannedAt,
     });
     return interpretCheckin(data, input.ticketId);
-  } catch {
+  } catch (first) {
     try {
       const data = await postFoo<unknown>("/update_ticket_status_m", {
         ticket_id: input.ticketId,
@@ -206,11 +206,34 @@ export async function checkInTicket(input: {
         event_id: input.eventId,
       });
       return interpretCheckin(data, input.ticketId);
-    } catch {
-      return {
-        verdict: "invalid",
-        message: "FooEvents check-in failed. Confirm the hs86e-scanner Application Password.",
-      };
+    } catch (second) {
+      // Classify the failure so the gate gets actionable feedback:
+      //  - 401/403: WordPress rejected the Application Password → credential fix
+      //  - anything else (5xx, timeouts, missing endpoints): infrastructure
+      //    outage → throw, so /api/scan/validate answers 503 and the scanner
+      //    queues the scan against the offline manifest instead of dead-ending.
+      const status = Number(
+        (first as { status?: number })?.status ?? (second as { status?: number })?.status ?? 0,
+      );
+      if (status === 401 || status === 403) {
+        console.error(
+          `[hs86e] FooEvents auth rejected (HTTP ${status}). Verify Netlify env vars: ` +
+            "WP_BASE_URL, WP_APP_USER (the WordPress user, e.g. hs86e-scanner) and " +
+            "WP_APP_PASSWORD (Users → Profile → Application Passwords). " +
+            `Detail: ${second instanceof Error ? second.message : String(second)}`,
+        );
+        return {
+          verdict: "invalid" as const,
+          message:
+            "FooEvents check-in failed. Confirm the hs86e-scanner Application Password.",
+        };
+      }
+      console.error(
+        `[hs86e] FooEvents check-in unavailable (HTTP ${status || "network"}). ` +
+          "Falling back to 503 so the scanner queues this scan. " +
+          `Detail: ${second instanceof Error ? second.message : String(second)}`,
+      );
+      throw new Error("FooEvents check-in unavailable");
     }
   }
 }

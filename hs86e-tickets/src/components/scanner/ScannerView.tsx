@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Flashlight, History, LogOut, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -45,6 +45,8 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
   const { pendingCount, enqueue, replay, syncing } = useScanQueue();
   const manifest = useOfflineManifest(eventId);
   const deviceId = useMemo(() => (typeof window === "undefined" ? "door" : getOrCreateDeviceId()), []);
+  // Late-bound so handleScan (created first) can trigger the camera reset.
+  const resetRef = useRef<(() => void) | null>(null);
 
   const applyFeedback = useCallback(
     async (next: ScanValidateResponse) => {
@@ -63,7 +65,12 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
 
   const handleScan = useCallback(
     async (raw: string) => {
-      await unlock();
+      // Audio unlock must never block or kill a scan (iOS can stall resume()).
+      try {
+        await unlock();
+      } catch (err) {
+        console.warn("[hs86e] scan sound unlock failed (continuing):", err);
+      }
       const ticketId = decodeTicketPayload(raw);
       const scannedAt = new Date().toISOString();
       if (!ticketId) return;
@@ -168,11 +175,27 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
           body: JSON.stringify({ ticketId: raw, eventId, deviceId, scannedAt }),
         });
         const data = (await res.json()) as ScanValidateResponse & { error?: string };
-        if (!res.ok) throw new Error(data.error || "Validate failed");
+        if (!res.ok) {
+          const failure = new Error(data.error || "Validate failed") as Error & {
+            status?: number;
+          };
+          failure.status = res.status;
+          throw failure;
+        }
         if (data.verdict === "valid" || data.verdict === "duplicate") rememberLocal(ticketId);
         if (data.verdict === "valid") await manifest.markCheckedIn(ticketId, scannedAt);
         await applyFeedback(data);
-      } catch {
+      } catch (err) {
+        // Backend error / 401 / 5xx: queue the scan, keep actionable feedback,
+        // and auto-reset the decode loop so the viewfinder never locks up.
+        const status = (err as { status?: number })?.status ?? 0;
+        console.error("[hs86e] /api/scan/validate failed", { status, error: String(err) });
+        const reason =
+          status === 401
+            ? "Scanner session expired — lock the screen and re-enter the PIN"
+            : status >= 500
+              ? "Verification service error — scan queued for replay"
+              : "Network error — scan queued for replay";
         enqueue({ ticketId: raw, eventId, scannedAt, deviceId });
         const attendee = await manifest.lookup(ticketId);
         if (attendee && attendee.status !== "Canceled") {
@@ -183,22 +206,28 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
             attendeeName: attendee.attendeeName,
             tier: attendee.tier,
             checkedInAt: attendee.checkedInAt || scannedAt,
-            message: "Queued after network error",
+            message: `${reason} (manifest: ${attendee.status})`,
             offline: true,
           });
         } else {
           await applyFeedback({
             verdict: "invalid",
             ticketId,
-            message: "Network error and ticket not in manifest",
+            message: status === 401 ? reason : "Network error and ticket not in manifest",
           });
         }
+        // 2.5 s auto-reset (gate spec): resume QR frame scanning cleanly,
+        // no hard page refresh required.
+        window.setTimeout(() => {
+          if (resetRef.current) resetRef.current();
+        }, 2500);
       }
     },
     [applyFeedback, deviceId, enqueue, eventId, manifest, online, unlock],
   );
 
   const scanner = useQrScanner(CAMERA_ID, handleScan, Boolean(eventId));
+  resetRef.current = scanner.reset;
 
   async function logout() {
     await fetch("/api/scan/auth", { method: "DELETE" });
