@@ -9,6 +9,10 @@ import { isTicketIdShape } from "@/lib/utils";
 import { checkInDemoTicket, findTicket } from "@/services/demo/store";
 import { checkInTicket } from "@/services/wp/fooevents";
 import { checkInLedgerTicket, ticketById, ticketsForOrder } from "@/services/tickets/ledger";
+import {
+  getFallbackCheckin,
+  recordFallbackCheckin,
+} from "@/services/tickets/wp-fallback";
 import type { IssuedTicket, ScanValidateResponse } from "@/lib/types";
 import { TRANSFER_VOID_MESSAGE, TRANSFER_VOID_STATUS } from "@/lib/constants";
 
@@ -291,21 +295,68 @@ async function handlePost(request: Request) {
     } satisfies ScanValidateResponse);
   }
 
-  const result = await checkInTicket({ ticketId, eventId, deviceId, scannedAt: when });
-  return NextResponse.json({
-    verdict: result.verdict,
-    ticketId,
-    attendeeName: result.ticket?.attendeeName,
-    attendeeEmail: result.ticket?.attendeeEmail,
-    attendeePhone: result.ticket?.attendeePhone,
-    tier: result.ticket?.tier,
-    eventName: result.ticket?.eventName,
-    checkedInAt: result.ticket?.checkedInAt || (result.verdict === "valid" ? when : undefined),
-    message:
-      result.verdict === "duplicate"
-        ? "ALREADY SCANNED / ADMISSION DENIED"
-        : result.verdict === "valid"
-          ? result.message
-          : result.message,
-  } satisfies ScanValidateResponse);
+  // A ticket WordPress refused to record (403 capability gap) was admitted
+  // locally. It is NOT in FooEvents, so WP cannot report it as a duplicate —
+  // the fallback ledger is the only authority for that re-scan.
+  const localFallback = getFallbackCheckin(ticketId);
+  if (localFallback) {
+    return NextResponse.json({
+      verdict: "duplicate",
+      ticketId,
+      attendeeName: localFallback.attendeeName,
+      eventName: localFallback.eventName,
+      checkedInAt: localFallback.checkedInAt,
+      message: "ALREADY SCANNED / ADMISSION DENIED",
+    } satisfies ScanValidateResponse);
+  }
+
+  return await withTicketLock(ticketId, async () => {
+    const result = await checkInTicket({ ticketId, eventId, deviceId, scannedAt: when });
+
+    if (result.verdict === "valid" && result.wpBlocked403) {
+      // CAS: only one of the racing staff devices records (and admits) it.
+      const recorded = recordFallbackCheckin({
+        ticketId,
+        eventId,
+        checkedInAt: when,
+        deviceId,
+        attendeeName: result.ticket?.attendeeName,
+        eventName: result.ticket?.eventName,
+        synced: false,
+        wpDetail: "HTTP 403 — FooEvents capability check refused the check-in write",
+      });
+      if (!recorded) {
+        return NextResponse.json({
+          verdict: "duplicate",
+          ticketId,
+          attendeeName: result.ticket?.attendeeName,
+          eventName: result.ticket?.eventName,
+          message: "ALREADY SCANNED / ADMISSION DENIED",
+        } satisfies ScanValidateResponse);
+      }
+      return NextResponse.json({
+        verdict: "valid",
+        ticketId,
+        attendeeName: result.ticket?.attendeeName,
+        attendeeEmail: result.ticket?.attendeeEmail,
+        attendeePhone: result.ticket?.attendeePhone,
+        tier: result.ticket?.tier,
+        eventName: result.ticket?.eventName,
+        checkedInAt: when,
+        message: result.message,
+      } satisfies ScanValidateResponse);
+    }
+
+    return NextResponse.json({
+      verdict: result.verdict,
+      ticketId,
+      attendeeName: result.ticket?.attendeeName,
+      attendeeEmail: result.ticket?.attendeeEmail,
+      attendeePhone: result.ticket?.attendeePhone,
+      tier: result.ticket?.tier,
+      eventName: result.ticket?.eventName,
+      checkedInAt: result.ticket?.checkedInAt || (result.verdict === "valid" ? when : undefined),
+      message: result.verdict === "duplicate" ? "ALREADY SCANNED / ADMISSION DENIED" : result.message,
+    } satisfies ScanValidateResponse);
+  });
 }

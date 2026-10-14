@@ -170,7 +170,19 @@ export async function checkInTicket(input: {
   eventId?: string;
   deviceId?: string;
   scannedAt?: string;
-}): Promise<{ verdict: ScanVerdict; ticket?: IssuedTicket; message: string }> {
+}): Promise<{
+  verdict: ScanVerdict;
+  ticket?: IssuedTicket;
+  message: string;
+  /**
+   * True when FooEvents CONFIRMED the ticket (read OK, "Not Checked In") but
+   * WordPress refused the check-in WRITE with 403. The caller may then admit
+   * the attendee via the local fallback ledger (see services/tickets/wp-fallback.ts).
+   * Never set when the read also failed — without WP confirmation of the
+   * ticket's existence, admitting it would trust an unverified ID string.
+   */
+  wpBlocked403?: boolean;
+}> {
   if (!hasFooEventsAuth()) {
     // Distinct from a wrong password: nothing was even attempted. Throwing
     // makes /api/scan/validate answer 503 so the gate queues scans against
@@ -182,13 +194,17 @@ export async function checkInTicket(input: {
     );
     throw new Error("FooEvents credentials are not configured");
   }
+  // Set only when WordPress CONFIRMED the ticket exists and is unused, so the
+  // 403 handler below never admits a ticket FooEvents refused to describe.
+  let wpConfirmedUnused = false;
+  let current: IssuedTicket | undefined;
   try {
     const existing = await postFoo<unknown>("/get_single_ticket", {
       ticket_id: input.ticketId,
       ID: input.ticketId,
     });
     const row = asTicketList(existing)[0] || (existing as FooTicket);
-    const current = row ? mapTicket(row, { ticketId: input.ticketId, eventId: input.eventId }) : undefined;
+    current = row ? mapTicket(row, { ticketId: input.ticketId, eventId: input.eventId }) : undefined;
     if (current && input.eventId && current.eventId && current.eventId !== input.eventId) {
       return { verdict: "invalid", ticket: current, message: "Wrong event" };
     }
@@ -198,6 +214,12 @@ export async function checkInTicket(input: {
     if (current?.status === "Checked In") {
       return { verdict: "duplicate", ticket: current, message: "Already checked in" };
     }
+    // WP must have returned the ticket's OWN id — an empty/"not found" reply
+    // must not count as confirmation (row can be a truthy empty array).
+    wpConfirmedUnused =
+      !!current &&
+      !!pick(row as FooTicket, "WooCommerceEventsTicketID", "ticket_id", "ticketID", "ID") &&
+      current.status === "Not Checked In";
   } catch {
     // continue to write — some installs reject get_single_ticket but accept update
   }
@@ -247,6 +269,27 @@ export async function checkInTicket(input: {
               : "Netlify env: WP_BASE_URL, WP_APP_USER (login slug), WP_APP_PASSWORD " +
                 "(Application Password). "),
         );
+        // RSG capability-bypass fallback: WordPress authenticated the request
+        // (403, not 401) and FooEvents CONFIRMED this exact ticket exists and
+        // is unused — only the plugin's capability check blocked the write.
+        // Admit via the local ledger and queue the WP write for later sync
+        // instead of turning a misconfigured capability into a closed gate.
+        if (forbidden && wpConfirmedUnused) {
+          console.warn(
+            `[hs86e] Admitting ${input.ticketId} via LOCAL FALLBACK — WordPress refused the ` +
+              "check-in write (403) after confirming the ticket. Grant the app_event_magic_tickets " +
+              "capabilities (or the functions.php user_has_cap snippet), then POST /api/scan/wp-sync " +
+              "to push pending local check-ins to FooEvents.",
+          );
+          return {
+            verdict: "valid" as const,
+            ticket: current,
+            message:
+              "Checked in locally — WordPress blocked the write (403 capability). " +
+              "Scan queued for WordPress sync.",
+            wpBlocked403: true,
+          };
+        }
         return {
           verdict: "invalid" as const,
           message: unknownUser
