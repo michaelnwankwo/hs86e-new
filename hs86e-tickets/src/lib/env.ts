@@ -31,7 +31,15 @@ const schema = z.object({
   WC_CONSUMER_KEY: optionalString,
   WC_CONSUMER_SECRET: optionalString,
   WP_APP_USER: optionalString,
-  WP_APP_PASSWORD: optionalString,
+  /**
+   * WordPress Application Password (Users → Profile → Application Passwords).
+   * ALL whitespace is stripped: Netlify/paste can introduce spaces, newlines
+   * or tabs, and anything left inside the value is baked verbatim into the
+   * Base64 Basic token — WordPress only ignores plain spaces on its side,
+   * so stray newlines/tabs otherwise cause silent 401 "invalid application
+   * password" rejections.
+   */
+  WP_APP_PASSWORD: optionalString.transform((v) => v?.replace(/\s+/g, "") || undefined),
 
   STRIPE_SECRET_KEY: optionalString,
   STRIPE_WEBHOOK_SECRET: optionalString,

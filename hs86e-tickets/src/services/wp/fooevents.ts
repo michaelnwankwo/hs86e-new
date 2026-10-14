@@ -168,6 +168,17 @@ export async function checkInTicket(input: {
   deviceId?: string;
   scannedAt?: string;
 }): Promise<{ verdict: ScanVerdict; ticket?: IssuedTicket; message: string }> {
+  if (!hasFooEventsAuth()) {
+    // Distinct from a wrong password: nothing was even attempted. Throwing
+    // makes /api/scan/validate answer 503 so the gate queues scans against
+    // the offline manifest instead of rejecting attendees.
+    console.error(
+      "[hs86e] FooEvents credentials are NOT configured — set WP_BASE_URL, " +
+        "WP_APP_USER (login slug, e.g. hs86e-scanner) and WP_APP_PASSWORD " +
+        "(Users → Profile → Application Passwords) in the Netlify environment.",
+    );
+    throw new Error("FooEvents credentials are not configured");
+  }
   try {
     const existing = await postFoo<unknown>("/get_single_ticket", {
       ticket_id: input.ticketId,
@@ -216,16 +227,28 @@ export async function checkInTicket(input: {
         (first as { status?: number })?.status ?? (second as { status?: number })?.status ?? 0,
       );
       if (status === 401 || status === 403) {
+        const detail = second instanceof Error ? second.message : String(second);
+        // WordPress tells the three failure modes apart — surface them:
+        //  invalid_username      → WP_APP_USER is not the login slug
+        //  incorrect_password    → Application Password wrong/revoked/expired
+        //  rest_forbidden (403)  → user lacks write rights for FooEvents
+        const unknownUser = /invalid_username|unknown username/i.test(detail);
+        const badPassword = /incorrect_password|invalid application password/i.test(detail);
+        const forbidden = status === 403 || /rest_forbidden/i.test(detail);
         console.error(
-          `[hs86e] FooEvents auth rejected (HTTP ${status}). Verify Netlify env vars: ` +
-            "WP_BASE_URL, WP_APP_USER (the WordPress user, e.g. hs86e-scanner) and " +
-            "WP_APP_PASSWORD (Users → Profile → Application Passwords). " +
-            `Detail: ${second instanceof Error ? second.message : String(second)}`,
+          `[hs86e] FooEvents auth rejected (HTTP ${status}). WordPress said: ${detail}. ` +
+            "Netlify env: WP_BASE_URL, WP_APP_USER (login slug), WP_APP_PASSWORD " +
+            "(Application Password).",
         );
         return {
           verdict: "invalid" as const,
-          message:
-            "FooEvents check-in failed. Confirm the hs86e-scanner Application Password.",
+          message: unknownUser
+            ? "WordPress does not recognize WP_APP_USER. Use the login slug (hs86e-scanner), not an email or display name."
+            : badPassword
+              ? "WordPress rejected WP_APP_PASSWORD. Regenerate the hs86e-scanner Application Password and update Netlify."
+              : forbidden
+                ? "WordPress refused the check-in (403). The hs86e-scanner user lacks FooEvents write permission — grant Shop manager or administrator."
+                : "FooEvents check-in failed. Confirm the hs86e-scanner Application Password.",
         };
       }
       console.error(

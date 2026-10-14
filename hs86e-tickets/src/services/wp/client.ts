@@ -16,10 +16,18 @@ function attachRetry(instance: AxiosInstance, label: string) {
         await new Promise((r) => setTimeout(r, wait));
         return instance.request(config);
       }
-      const detail =
-        (error.response?.data as { message?: string } | undefined)?.message || error.message;
-      const wrapped = new Error(`${label} request failed: ${detail}`);
+      const data = error.response?.data as
+        | { code?: string; message?: string }
+        | undefined;
+      const detail = data?.message || error.message;
+      const code = data?.code ? ` [${data.code}]` : "";
+      // Preserve the exact WP status + error code + body excerpt so server
+      // logs identify credential vs permission vs route problems precisely.
+      const wrapped = new Error(
+        `${label} HTTP ${status}${code}: ${String(detail).slice(0, 300)}`,
+      );
       (wrapped as Error & { status?: number }).status = status;
+      (wrapped as Error & { wpCode?: string }).wpCode = data?.code;
       throw wrapped;
     },
   );
