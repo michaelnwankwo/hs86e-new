@@ -1,0 +1,122 @@
+diff --git a/hs86e-tickets/src/hooks/useScanQueue.ts b/hs86e-tickets/src/hooks/useScanQueue.ts
+--- a/hs86e-tickets/src/hooks/useScanQueue.ts
++++ b/hs86e-tickets/src/hooks/useScanQueue.ts
+@@ -44,12 +44,15 @@
+ 
+   const alreadyConfirmed =
+     verdict === "already_synced" ||
++    verdict === "already_checked_in" ||
+     (data.success === true && /already checked in|check-in confirmed/.test(message)) ||
+     (verdict === "duplicate" && /already checked in|already scanned|check-in confirmed/.test(message)) ||
+     (res.status === 409 && /already checked in|check-in confirmed/.test(message));
+ 
+   if (res.ok) {
+-    return verdict === "valid" || verdict === "duplicate" || alreadyConfirmed || data.success === true;
++    // A bare `duplicate` is not enough evidence to clear local work. The
++    // server must say valid/successful or explicitly confirm an already-settled check-in.
++    return verdict === "valid" || alreadyConfirmed || data.success === true;
+   }
+   // Accommodate a legacy 409 only when the response explicitly confirms the
+   // idempotent already-checked-in outcome; arbitrary HTTP errors stay pending.
+@@ -80,6 +83,16 @@
+       return false;
+     }
+   }, []);
++
++  /** Remove only pending rows from this device; this never writes to WordPress. */
++  const purgePending = useCallback((): { removed: number; saved: boolean } => {
++    const current = readQueue();
++    const remaining = current.filter((item) => item.synced);
++    const removed = current.length - remaining.length;
++    if (removed === 0) return { removed: 0, saved: true };
++    const saved = persist(remaining);
++    return { removed: saved ? removed : 0, saved };
++  }, [persist]);
+ 
+   const enqueue = useCallback(
+     (scan: Omit<QueuedScan, "synced" | "failed" | "lastError">) => {
+@@ -254,6 +267,7 @@
+     enqueue,
+     replay,
+     flushOfflineQueue,
++    purgePending,
+     syncing,
+   };
+ }
+diff --git a/hs86e-tickets/src/app/scan/history/HistoryClient.tsx b/hs86e-tickets/src/app/scan/history/HistoryClient.tsx
+--- a/hs86e-tickets/src/app/scan/history/HistoryClient.tsx
++++ b/hs86e-tickets/src/app/scan/history/HistoryClient.tsx
+@@ -15,7 +15,7 @@
+ }
+ 
+ export function HistoryClient() {
+-  const { queue, pendingCount, flushOfflineQueue, syncing } = useScanQueue();
++  const { queue, pendingCount, flushOfflineQueue, purgePending, syncing } = useScanQueue();
+   const online = useOnlineStatus();
+   const toast = useToast();
+ 
+@@ -29,6 +29,25 @@
+       }
+     } catch {
+       toast(`Sync failed for ${pendingCount} items. Retrying when online...`);
++    }
++  }
++
++  function purgeLocalQueue() {
++    if (syncing || pendingCount === 0) return;
++    const confirmed = window.confirm(
++      "Only continue after you have verified every pending ticket in WordPress Admin. " +
++        "This permanently removes PENDING rows from this device only; it does not sync them " +
++        "or change WordPress. Purge the local pending queue?",
++    );
++    if (!confirmed) return;
++
++    const result = purgePending();
++    if (!result.saved) {
++      toast("Could not save the local queue change. No pending scans were cleared.");
++    } else if (result.removed > 0) {
++      toast(
++        `Removed ${result.removed} pending scan${result.removed === 1 ? "" : "s"} from this device only. WordPress was not changed.`,
++      );
+     }
+   }
+ 
+@@ -60,6 +79,23 @@
+         {syncing ? "Flushing Queue…" : "Flush Queue"}
+       </button>
+ 
++      {pendingCount > 0 ? (
++        <section className="mb-5 rounded-xl border border-red-400/25 bg-red-950/20 p-3">
++          <p className="text-xs leading-relaxed text-ink-muted">
++            Manual clear is local-only. Verify every pending ticket as checked in within WordPress Admin first;
++            purging does not sync or alter WordPress.
++          </p>
++          <button
++            type="button"
++            onClick={purgeLocalQueue}
++            disabled={syncing}
++            className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-red-400/40 bg-red-950/35 px-4 text-sm font-semibold text-red-200 transition hover:bg-red-950/60 disabled:cursor-not-allowed disabled:opacity-45"
++          >
++            Purge Local Queue
++          </button>
++        </section>
++      ) : null}
++
+       {queue.length === 0 ? (
+         <p className="rounded-xl border border-gold/15 bg-surface-raised px-4 py-8 text-center text-sm text-ink-muted">
+           No scans recorded on this device yet.
+@@ -87,6 +123,14 @@
+                         {ticketId}
+                       </p>
+                       <p className="mt-1 text-xs text-ink-dim">{formatTimestamp(row.scannedAt)}</p>
++                      {!row.synced && row.lastError ? (
++                        <p
++                          className="mt-2 break-words text-xs text-amber-200"
++                          title={row.lastError}
++                        >
++                          Sync issue: {row.lastError.slice(0, 180)}
++                        </p>
++                      ) : null}
+                     </div>
+                     <span
+                       className={`inline-flex w-fit shrink-0 self-start rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] sm:self-auto ${statusClass}`}

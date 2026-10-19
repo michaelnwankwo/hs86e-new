@@ -44,12 +44,15 @@ function isConfirmedReplay(res: Response, data: ReplayResponse) {
 
   const alreadyConfirmed =
     verdict === "already_synced" ||
+    verdict === "already_checked_in" ||
     (data.success === true && /already checked in|check-in confirmed/.test(message)) ||
     (verdict === "duplicate" && /already checked in|already scanned|check-in confirmed/.test(message)) ||
     (res.status === 409 && /already checked in|check-in confirmed/.test(message));
 
   if (res.ok) {
-    return verdict === "valid" || verdict === "duplicate" || alreadyConfirmed || data.success === true;
+    // A bare `duplicate` is not enough evidence to clear local work. The
+    // server must say valid/successful or explicitly confirm an already-settled check-in.
+    return verdict === "valid" || alreadyConfirmed || data.success === true;
   }
   // Accommodate a legacy 409 only when the response explicitly confirms the
   // idempotent already-checked-in outcome; arbitrary HTTP errors stay pending.
@@ -80,6 +83,16 @@ export function useScanQueue() {
       return false;
     }
   }, []);
+
+  /** Remove only pending rows from this device; this never writes to WordPress. */
+  const purgePending = useCallback((): { removed: number; saved: boolean } => {
+    const current = readQueue();
+    const remaining = current.filter((item) => item.synced);
+    const removed = current.length - remaining.length;
+    if (removed === 0) return { removed: 0, saved: true };
+    const saved = persist(remaining);
+    return { removed: saved ? removed : 0, saved };
+  }, [persist]);
 
   const enqueue = useCallback(
     (scan: Omit<QueuedScan, "synced" | "failed" | "lastError">) => {
@@ -254,6 +267,7 @@ export function useScanQueue() {
     enqueue,
     replay,
     flushOfflineQueue,
+    purgePending,
     syncing,
   };
 }
