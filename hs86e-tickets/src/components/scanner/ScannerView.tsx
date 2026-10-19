@@ -10,7 +10,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useQrScanner } from "@/hooks/useQrScanner";
 import { useScanQueue } from "@/hooks/useScanQueue";
 import { useScanSounds } from "@/hooks/useScanSounds";
-import { SCAN_FLASH_MS, SCAN_LOCAL_SET_KEY, TRANSFER_VOID_MESSAGE, TRANSFER_VOID_STATUS } from "@/lib/constants";
+import { SCAN_DEBOUNCE_MS, SCAN_FLASH_MS, SCAN_LOCAL_SET_KEY, TRANSFER_VOID_MESSAGE, TRANSFER_VOID_STATUS } from "@/lib/constants";
 import { decodeTicketPayload, parseTicketPayload } from "@/lib/ticket-payload";
 import { getOrCreateDeviceId, safeJson } from "@/lib/utils";
 import type { EventProduct, ScanValidateResponse, ScanVerdict } from "@/lib/types";
@@ -45,8 +45,13 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
   const { pendingCount, enqueue, replay, syncing } = useScanQueue();
   const manifest = useOfflineManifest(eventId);
   const deviceId = useMemo(() => (typeof window === "undefined" ? "door" : getOrCreateDeviceId()), []);
-  // Late-bound so handleScan (created first) can trigger the camera reset.
+  // Late-bound camera controls let the callback pause frame processing before
+  // any async work starts, then resume after the result has been held on screen.
   const resetRef = useRef<(() => void) | null>(null);
+  const cameraControlsRef = useRef<{ pause: () => void; resume: () => void } | null>(null);
+  const isProcessingScanRef = useRef(false);
+  const scanSequenceRef = useRef(0);
+  const [isProcessingScan, setIsProcessingScan] = useState(false);
 
   const applyFeedback = useCallback(
     async (next: ScanValidateResponse) => {
@@ -63,7 +68,7 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
     [play],
   );
 
-  const handleScan = useCallback(
+  const processScan = useCallback(
     async (raw: string) => {
       // Audio unlock must never block or kill a scan (iOS can stall resume()).
       try {
@@ -84,7 +89,7 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
           attendeeName: cached?.attendeeName,
           tier: cached?.tier,
           eventName: cached?.eventName,
-          checkedInAt: cached?.checkedInAt,
+          checkedInAt: cached?.checkedInAt || scannedAt,
           message: "Already scanned on this device",
           offline: !online,
         });
@@ -131,7 +136,7 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
             ticketId,
             attendeeName: attendee.attendeeName,
             tier: attendee.tier,
-            checkedInAt: attendee.checkedInAt,
+            checkedInAt: attendee.checkedInAt || scannedAt,
             message: "Already checked in",
             offline: true,
           });
@@ -237,7 +242,7 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
               attendeeName: attendee?.attendeeName,
               tier: attendee?.tier,
               eventName: attendee?.eventName,
-              checkedInAt: attendee?.checkedInAt,
+              checkedInAt: attendee?.checkedInAt || scannedAt,
               message: "ALREADY SCANNED / ADMISSION DENIED",
             });
             return;
@@ -286,7 +291,11 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
         if (data.verdict === "valid" || data.verdict === "duplicate") rememberLocal(ticketId);
         if (data.verdict === "valid") await manifest.markCheckedIn(ticketId, scannedAt);
         if (data.wpSyncPending) enqueue({ ticketId: raw, eventId, scannedAt, deviceId });
-        await applyFeedback(data);
+        await applyFeedback(
+          data.verdict === "duplicate" && !data.checkedInAt
+            ? { ...data, checkedInAt: scannedAt }
+            : data,
+        );
       } catch (err) {
         // Backend error / 401 / 5xx: queue the scan, keep actionable feedback,
         // and auto-reset the decode loop so the viewfinder never locks up.
@@ -328,8 +337,49 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
     [applyFeedback, deviceId, enqueue, eventId, manifest, online, unlock],
   );
 
+  const handleScan = useCallback(
+    async (raw: string) => {
+      // The QR hook already pauses decoded frames; this ref is the second line
+      // of defense against a second callback racing the async validator.
+      if (isProcessingScanRef.current) return;
+      isProcessingScanRef.current = true;
+      const scanSequence = ++scanSequenceRef.current;
+      const startedAt = Date.now();
+      setIsProcessingScan(true);
+      cameraControlsRef.current?.pause();
+
+      try {
+        await processScan(raw);
+      } catch (error) {
+        console.error("[hs86e] unexpected scan processing error", error);
+        try {
+          await applyFeedback({
+            verdict: "invalid",
+            ticketId: decodeTicketPayload(raw),
+            message: "Scan could not be completed. Please retry.",
+          });
+        } catch (feedbackError) {
+          console.error("[hs86e] could not show scan error feedback", feedbackError);
+        }
+      } finally {
+        const remainingLockMs = Math.max(0, SCAN_DEBOUNCE_MS - (Date.now() - startedAt));
+        window.setTimeout(() => {
+          if (scanSequenceRef.current !== scanSequence) return;
+          isProcessingScanRef.current = false;
+          setIsProcessingScan(false);
+          cameraControlsRef.current?.resume();
+        }, remainingLockMs);
+        window.setTimeout(() => {
+          if (scanSequenceRef.current === scanSequence) setResult(null);
+        }, SCAN_DEBOUNCE_MS);
+      }
+    },
+    [applyFeedback, processScan],
+  );
+
   const scanner = useQrScanner(CAMERA_ID, handleScan, Boolean(eventId));
   resetRef.current = scanner.reset;
+  cameraControlsRef.current = { pause: scanner.pause, resume: scanner.resume };
 
   async function logout() {
     await fetch("/api/scan/auth", { method: "DELETE" });
@@ -377,7 +427,7 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
         </StatusBanner>
       ) : null}
 
-      <CameraFeed elementId={CAMERA_ID} />
+      <CameraFeed elementId={CAMERA_ID} isProcessingScan={isProcessingScan} />
 
       <div className="mt-3 flex gap-2">
         {scanner.torchAvailable ? (

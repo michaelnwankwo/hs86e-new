@@ -1,0 +1,668 @@
+diff --git a/hs86e-tickets/src/app/scan/history/HistoryClient.tsx b/hs86e-tickets/src/app/scan/history/HistoryClient.tsx
+new file mode 100644
+index 0000000..f13465d
+--- /dev/null
++++ b/hs86e-tickets/src/app/scan/history/HistoryClient.tsx
+@@ -0,0 +1,100 @@
++"use client";
++
++import Link from "next/link";
++import { RefreshCw } from "lucide-react";
++import { useScanQueue } from "@/hooks/useScanQueue";
++import { useOnlineStatus } from "@/hooks/useOnlineStatus";
++import { decodeTicketPayload } from "@/lib/ticket-payload";
++
++function formatTimestamp(value: string) {
++  const date = new Date(value);
++  if (Number.isNaN(date.getTime())) return "Unknown time";
++  const pad = (part: number) => String(part).padStart(2, "0");
++  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}, ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
++}
++
++export function HistoryClient() {
++  const { queue, pendingCount, failedCount, replay, syncing } = useScanQueue();
++  const online = useOnlineStatus();
++  const flushableCount = pendingCount + failedCount;
++
++  return (
++    <div className="mx-auto max-w-2xl px-4 py-6">
++      <div className="mb-5">
++        <h1 className="font-display text-3xl text-ink">THIS DEVICE</h1>
++        <p className="mt-1 text-sm text-ink-muted">Local queue history and sync status</p>
++      </div>
++
++      <section aria-label="Scan summary" className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
++        <div className="rounded-xl border border-gold/20 bg-surface-raised px-3 py-3">
++          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-dim">Queue scans</p>
++          <p className="mt-1 text-xl font-bold text-ink">{queue.length}</p>
++        </div>
++        <div className="rounded-xl border border-gold/20 bg-surface-raised px-3 py-3">
++          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-dim">Pending sync</p>
++          <p className="mt-1 text-xl font-bold text-gold-champagne">{pendingCount}</p>
++        </div>
++        <div className="rounded-xl border border-danger-bright/30 bg-surface-raised px-3 py-3">
++          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-dim">Needs review</p>
++          <p className="mt-1 text-xl font-bold text-danger-bright">{failedCount}</p>
++        </div>
++      </section>
++
++      <button
++        type="button"
++        onClick={() => void replay(true)}
++        disabled={syncing || flushableCount === 0 || !online}
++        className="mb-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-gold/35 bg-gold/10 px-4 text-sm font-semibold text-gold-champagne transition hover:bg-gold/15 disabled:cursor-not-allowed disabled:opacity-45"
++      >
++        <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
++        {syncing ? "Flushing Queue…" : "Flush Queue"}
++      </button>
++
++      {queue.length === 0 ? (
++        <p className="rounded-xl border border-gold/15 bg-surface-raised px-4 py-8 text-center text-sm text-ink-muted">
++          No scans recorded on this device yet.
++        </p>
++      ) : (
++        <ul className="space-y-2">
++          {queue
++            .slice()
++            .reverse()
++            .map((row) => {
++              const ticketId = decodeTicketPayload(row.ticketId) || row.ticketId;
++              const status = row.synced ? "SYNCED" : row.failed ? "FAILED" : "PENDING";
++              const statusClass = row.synced
++                ? "border-emerald-300/25 bg-emerald-950/45 text-emerald-200"
++                : row.failed
++                  ? "border-danger-bright/35 bg-danger/20 text-rose-100"
++                  : "border-gold/30 bg-gold/10 text-gold-champagne";
++
++              return (
++                <li
++                  key={`${row.ticketId}-${row.scannedAt}`}
++                  className="gold-border min-w-0 rounded-xl bg-surface-raised px-3 py-3 sm:px-4"
++                >
++                  <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
++                    <div className="min-w-0 flex-1">
++                      <p className="max-w-full break-all font-mono text-sm text-gold-champagne">
++                        {ticketId}
++                      </p>
++                      <p className="mt-1 text-xs text-ink-dim">{formatTimestamp(row.scannedAt)}</p>
++                    </div>
++                    <span
++                      className={`inline-flex w-fit shrink-0 self-start rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] sm:self-auto ${statusClass}`}
++                    >
++                      {status}
++                    </span>
++                  </div>
++                </li>
++              );
++            })}
++        </ul>
++      )}
++
++      <Link href="/scan" className="mt-6 block text-center text-sm text-gold">
++        Back to scanner
++      </Link>
++    </div>
++  );
++}
+diff --git a/hs86e-tickets/src/app/scan/history/page.tsx b/hs86e-tickets/src/app/scan/history/page.tsx
+index c52e8b3..722fb22 100644
+--- a/hs86e-tickets/src/app/scan/history/page.tsx
++++ b/hs86e-tickets/src/app/scan/history/page.tsx
+@@ -1,54 +1,12 @@
+-"use client";
++import type { Metadata } from "next";
++import { HistoryClient } from "./HistoryClient";
+ 
+-import { useEffect, useState } from "react";
+-import Link from "next/link";
+-import { SCAN_QUEUE_KEY } from "@/lib/constants";
+-import { safeJson } from "@/lib/utils";
+-import type { QueuedScan } from "@/lib/types";
++/** Staff-only surface — excluded from search and the public sitemap. */
++export const metadata: Metadata = {
++  title: "Scan History | Hot Since 86",
++  robots: { index: false, follow: false },
++};
+ 
+ export default function ScanHistoryPage() {
+-  const [rows, setRows] = useState<QueuedScan[]>([]);
+-
+-  useEffect(() => {
+-    setRows(safeJson<QueuedScan[]>(localStorage.getItem(SCAN_QUEUE_KEY), []));
+-  }, []);
+-
+-  return (
+-    <div className="px-4 py-6">
+-      <div className="mb-6">
+-        <h1 className="font-display text-3xl text-ink">This device</h1>
+-        <p className="mt-1 text-sm text-ink-muted">Local scan log and sync status</p>
+-      </div>
+-      {rows.length === 0 ? (
+-        <p className="text-center text-sm text-ink-muted">No scans on this phone yet.</p>
+-      ) : (
+-        <ul className="space-y-2">
+-          {rows
+-            .slice()
+-            .reverse()
+-            .map((row) => (
+-              <li
+-                key={`${row.ticketId}-${row.scannedAt}`}
+-                className="gold-border flex items-center justify-between rounded-xl bg-surface-raised px-3 py-3"
+-              >
+-                <div>
+-                  <p className="font-mono text-sm text-gold-champagne">{row.ticketId}</p>
+-                  <p className="text-xs text-ink-dim">{new Date(row.scannedAt).toLocaleString()}</p>
+-                </div>
+-                <span
+-                  className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${
+-                    row.synced ? "text-emerald-bright" : "text-gold"
+-                  }`}
+-                >
+-                  {row.synced ? "Synced" : "Pending"}
+-                </span>
+-              </li>
+-            ))}
+-        </ul>
+-      )}
+-      <Link href="/scan" className="mt-6 block text-center text-sm text-gold">
+-        Back to scanner
+-      </Link>
+-    </div>
+-  );
++  return <HistoryClient />;
+ }
+diff --git a/hs86e-tickets/src/components/scanner/AttendeeResultCard.tsx b/hs86e-tickets/src/components/scanner/AttendeeResultCard.tsx
+index 782ba65..27f3f4c 100644
+--- a/hs86e-tickets/src/components/scanner/AttendeeResultCard.tsx
++++ b/hs86e-tickets/src/components/scanner/AttendeeResultCard.tsx
+@@ -3,63 +3,93 @@
+ import { AlertTriangle, Ban, CheckCircle2, XCircle } from "lucide-react";
+ import type { ScanValidateResponse } from "@/lib/types";
+ import { TRANSFER_VOID_STATUS } from "@/lib/constants";
+-import { cn, formatTime } from "@/lib/utils";
++import { cn } from "@/lib/utils";
++
++function formatProcessedAt(value?: string) {
++  if (!value) return "";
++  const date = new Date(value);
++  if (Number.isNaN(date.getTime())) return "";
++  const pad = (part: number) => String(part).padStart(2, "0");
++  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}, ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
++}
+ 
+ export function AttendeeResultCard({ result }: { result: ScanValidateResponse }) {
++  const valid = result.verdict === "valid";
++  const duplicate = result.verdict === "duplicate";
+   const transferred = result.verdict === "transferred";
++  const queuedSync = valid && Boolean(result.offline || result.wpSyncPending);
+   const Icon = transferred
+     ? Ban
+-    : result.verdict === "valid"
++    : valid
+       ? CheckCircle2
+-      : result.verdict === "duplicate"
++      : duplicate
+         ? AlertTriangle
+         : XCircle;
+-  const label =
+-    result.statusLabel ||
+-    (transferred
+-      ? TRANSFER_VOID_STATUS
+-      : result.verdict === "valid"
+-        ? "VALID"
+-        : result.verdict === "duplicate"
+-          ? "TICKET ALREADY USED"
+-          : result.verdict === "canceled"
+-            ? "CANCELED"
+-            : "INVALID");
++
++  const label = valid
++    ? "VALID · ADMISSION GRANTED"
++    : duplicate
++      ? "INVALID · ALREADY SCANNED / ADMISSION DENIED"
++      : result.statusLabel || (transferred ? TRANSFER_VOID_STATUS : result.verdict.toUpperCase());
++
++  const processedAt = duplicate ? formatProcessedAt(result.checkedInAt) : "";
+ 
+   return (
+     <div
+       className={cn(
+-        "rounded-2xl p-4",
+-        transferred
+-          ? "border border-danger-bright/70 bg-danger/35"
+-          : "gold-border bg-surface-raised",
++        "min-w-0 rounded-2xl border p-4",
++        valid
++          ? "border-emerald-300/35 bg-emerald-950/45"
++          : "border-danger-bright/55 bg-[#171016]",
+       )}
+     >
+-      <div className={cn("flex items-center gap-2", transferred ? "text-danger-bright" : "text-gold")}>
+-        <Icon className="h-5 w-5" />
+-        <span className="text-xs font-bold uppercase tracking-[0.18em]">{label}</span>
+-        {result.offline ? (
+-          <span className="ml-auto rounded-full border border-gold/30 px-2 py-0.5 text-[10px] text-gold-champagne">
+-            OFFLINE-VERIFIED
++      <div className={cn("flex min-w-0 items-start gap-2", valid ? "text-emerald-200" : "text-danger-bright")}>
++        <Icon className="mt-0.5 h-5 w-5 shrink-0" />
++        <span className="min-w-0 flex-1 break-words text-xs font-bold uppercase tracking-[0.12em] sm:tracking-[0.18em]">
++          {label}
++        </span>
++        {queuedSync ? (
++          <span className="shrink-0 rounded-full border border-emerald-300/30 bg-emerald-900/40 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
++            SYNC QUEUED
+           </span>
+         ) : null}
+       </div>
+-      {transferred ? (
+-        <p className="mt-3 font-display text-xl uppercase tracking-wide text-ink">
++
++      {valid ? (
++        <p className="mt-3 break-words font-display text-lg leading-snug text-emerald-100">
++          VERIFIED TICKET HOLDER · Ticket {result.ticketId}
++        </p>
++      ) : duplicate ? (
++        <>
++          <p className="mt-3 break-words font-display text-xl uppercase tracking-wide text-ink">
++            Ticket {result.ticketId}
++          </p>
++          <p className="mt-2 text-sm font-semibold text-danger-bright">ADMISSION DENIED</p>
++          <p className="mt-1 text-xs text-rose-100/80">
++            Processed at {processedAt || "time unavailable"}
++          </p>
++        </>
++      ) : transferred ? (
++        <p className="mt-3 break-words font-display text-xl uppercase tracking-wide text-ink">
+           {TRANSFER_VOID_STATUS}
+         </p>
+       ) : (
+-        <p className="mt-3 font-display text-2xl text-ink">{result.attendeeName || "Unknown guest"}</p>
++        <>
++          <p className="mt-3 break-words font-display text-2xl text-ink">{result.attendeeName || "Unknown guest"}</p>
++          <p className="mt-1 break-words text-sm text-ink-muted">
++            {result.tier || "Ticket"} · {result.ticketId}
++          </p>
++        </>
+       )}
+-      <p className="mt-1 text-sm text-ink-muted">
+-        {result.tier || "Ticket"} · {result.ticketId}
+-      </p>
+-      {result.verdict === "duplicate" && result.checkedInAt ? (
+-        <p className="mt-2 text-sm text-gold-champagne">Checked in {formatTime(result.checkedInAt)}</p>
++
++      {valid && queuedSync ? (
++        <p className="mt-2 text-xs text-emerald-200/90">
++          {result.offline ? "Saved on this device · sync queued." : "Remote sync queued."}
++        </p>
++      ) : null}
++      {!valid && !duplicate ? (
++        <p className="mt-2 text-xs text-rose-100/80">{result.message}</p>
+       ) : null}
+-      <p className={cn("mt-2 text-xs", transferred ? "text-[#F8FAFC]" : "text-ink-dim")}>
+-        {result.message}
+-      </p>
+     </div>
+   );
+ }
+diff --git a/hs86e-tickets/src/components/scanner/CameraFeed.tsx b/hs86e-tickets/src/components/scanner/CameraFeed.tsx
+index 5d01de3..214215f 100644
+--- a/hs86e-tickets/src/components/scanner/CameraFeed.tsx
++++ b/hs86e-tickets/src/components/scanner/CameraFeed.tsx
+@@ -1,12 +1,20 @@
+ "use client";
+ 
+-export function CameraFeed({ elementId }: { elementId: string }) {
++export function CameraFeed({ elementId, isProcessingScan = false }: { elementId: string; isProcessingScan?: boolean }) {
+   return (
+     <div className="relative overflow-hidden rounded-3xl border border-gold/25 bg-black">
+       <div id={elementId} className="min-h-[320px] w-full overflow-hidden [&_video]:h-full [&_video]:w-full [&_video]:object-cover" />
+       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+         <div className="h-[250px] w-[250px] rounded-2xl border-2 border-gold-champagne/80 shadow-[0_0_0_999px_rgba(11,14,20,0.35)]" />
+       </div>
++      {isProcessingScan ? (
++        <div
++          aria-live="polite"
++          className="pointer-events-none absolute inset-x-3 bottom-4 mx-auto w-fit max-w-[calc(100%-1.5rem)] rounded-full border border-emerald-300/30 bg-emerald-950/90 px-4 py-2 text-center text-xs font-semibold text-emerald-100 shadow-lg"
++        >
++          Verifying ticket · please wait
++        </div>
++      ) : null}
+     </div>
+   );
+ }
+diff --git a/hs86e-tickets/src/components/scanner/ScanResultFlash.tsx b/hs86e-tickets/src/components/scanner/ScanResultFlash.tsx
+index b5ebab4..d0fe7d3 100644
+--- a/hs86e-tickets/src/components/scanner/ScanResultFlash.tsx
++++ b/hs86e-tickets/src/components/scanner/ScanResultFlash.tsx
+@@ -10,7 +10,7 @@ export function ScanResultFlash({ verdict }: { verdict: ScanVerdict | null }) {
+       className={cn(
+         "pointer-events-none fixed inset-0 z-50 animate-flash-in",
+         verdict === "valid" && "bg-emerald-bright/80",
+-        verdict === "duplicate" && "bg-amber-bright/75",
++        verdict === "duplicate" && "bg-danger/85",
+         (verdict === "invalid" ||
+           verdict === "canceled" ||
+           verdict === "transferred" ||
+diff --git a/hs86e-tickets/src/components/scanner/ScannerView.tsx b/hs86e-tickets/src/components/scanner/ScannerView.tsx
+index f3280fe..652f005 100644
+--- a/hs86e-tickets/src/components/scanner/ScannerView.tsx
++++ b/hs86e-tickets/src/components/scanner/ScannerView.tsx
+@@ -10,7 +10,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+ import { useQrScanner } from "@/hooks/useQrScanner";
+ import { useScanQueue } from "@/hooks/useScanQueue";
+ import { useScanSounds } from "@/hooks/useScanSounds";
+-import { SCAN_FLASH_MS, SCAN_LOCAL_SET_KEY, TRANSFER_VOID_MESSAGE, TRANSFER_VOID_STATUS } from "@/lib/constants";
++import { SCAN_DEBOUNCE_MS, SCAN_FLASH_MS, SCAN_LOCAL_SET_KEY, TRANSFER_VOID_MESSAGE, TRANSFER_VOID_STATUS } from "@/lib/constants";
+ import { decodeTicketPayload, parseTicketPayload } from "@/lib/ticket-payload";
+ import { getOrCreateDeviceId, safeJson } from "@/lib/utils";
+ import type { EventProduct, ScanValidateResponse, ScanVerdict } from "@/lib/types";
+@@ -45,8 +45,13 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
+   const { pendingCount, enqueue, replay, syncing } = useScanQueue();
+   const manifest = useOfflineManifest(eventId);
+   const deviceId = useMemo(() => (typeof window === "undefined" ? "door" : getOrCreateDeviceId()), []);
+-  // Late-bound so handleScan (created first) can trigger the camera reset.
++  // Late-bound camera controls let the callback pause frame processing before
++  // any async work starts, then resume after the result has been held on screen.
+   const resetRef = useRef<(() => void) | null>(null);
++  const cameraControlsRef = useRef<{ pause: () => void; resume: () => void } | null>(null);
++  const isProcessingScanRef = useRef(false);
++  const scanSequenceRef = useRef(0);
++  const [isProcessingScan, setIsProcessingScan] = useState(false);
+ 
+   const applyFeedback = useCallback(
+     async (next: ScanValidateResponse) => {
+@@ -63,7 +68,7 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
+     [play],
+   );
+ 
+-  const handleScan = useCallback(
++  const processScan = useCallback(
+     async (raw: string) => {
+       // Audio unlock must never block or kill a scan (iOS can stall resume()).
+       try {
+@@ -84,7 +89,7 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
+           attendeeName: cached?.attendeeName,
+           tier: cached?.tier,
+           eventName: cached?.eventName,
+-          checkedInAt: cached?.checkedInAt,
++          checkedInAt: cached?.checkedInAt || scannedAt,
+           message: "Already scanned on this device",
+           offline: !online,
+         });
+@@ -131,7 +136,7 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
+             ticketId,
+             attendeeName: attendee.attendeeName,
+             tier: attendee.tier,
+-            checkedInAt: attendee.checkedInAt,
++            checkedInAt: attendee.checkedInAt || scannedAt,
+             message: "Already checked in",
+             offline: true,
+           });
+@@ -237,7 +242,7 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
+               attendeeName: attendee?.attendeeName,
+               tier: attendee?.tier,
+               eventName: attendee?.eventName,
+-              checkedInAt: attendee?.checkedInAt,
++              checkedInAt: attendee?.checkedInAt || scannedAt,
+               message: "ALREADY SCANNED / ADMISSION DENIED",
+             });
+             return;
+@@ -286,7 +291,11 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
+         if (data.verdict === "valid" || data.verdict === "duplicate") rememberLocal(ticketId);
+         if (data.verdict === "valid") await manifest.markCheckedIn(ticketId, scannedAt);
+         if (data.wpSyncPending) enqueue({ ticketId: raw, eventId, scannedAt, deviceId });
+-        await applyFeedback(data);
++        await applyFeedback(
++          data.verdict === "duplicate" && !data.checkedInAt
++            ? { ...data, checkedInAt: scannedAt }
++            : data,
++        );
+       } catch (err) {
+         // Backend error / 401 / 5xx: queue the scan, keep actionable feedback,
+         // and auto-reset the decode loop so the viewfinder never locks up.
+@@ -328,8 +337,49 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
+     [applyFeedback, deviceId, enqueue, eventId, manifest, online, unlock],
+   );
+ 
++  const handleScan = useCallback(
++    async (raw: string) => {
++      // The QR hook already pauses decoded frames; this ref is the second line
++      // of defense against a second callback racing the async validator.
++      if (isProcessingScanRef.current) return;
++      isProcessingScanRef.current = true;
++      const scanSequence = ++scanSequenceRef.current;
++      const startedAt = Date.now();
++      setIsProcessingScan(true);
++      cameraControlsRef.current?.pause();
++
++      try {
++        await processScan(raw);
++      } catch (error) {
++        console.error("[hs86e] unexpected scan processing error", error);
++        try {
++          await applyFeedback({
++            verdict: "invalid",
++            ticketId: decodeTicketPayload(raw),
++            message: "Scan could not be completed. Please retry.",
++          });
++        } catch (feedbackError) {
++          console.error("[hs86e] could not show scan error feedback", feedbackError);
++        }
++      } finally {
++        const remainingLockMs = Math.max(0, SCAN_DEBOUNCE_MS - (Date.now() - startedAt));
++        window.setTimeout(() => {
++          if (scanSequenceRef.current !== scanSequence) return;
++          isProcessingScanRef.current = false;
++          setIsProcessingScan(false);
++          cameraControlsRef.current?.resume();
++        }, remainingLockMs);
++        window.setTimeout(() => {
++          if (scanSequenceRef.current === scanSequence) setResult(null);
++        }, SCAN_DEBOUNCE_MS);
++      }
++    },
++    [applyFeedback, processScan],
++  );
++
+   const scanner = useQrScanner(CAMERA_ID, handleScan, Boolean(eventId));
+   resetRef.current = scanner.reset;
++  cameraControlsRef.current = { pause: scanner.pause, resume: scanner.resume };
+ 
+   async function logout() {
+     await fetch("/api/scan/auth", { method: "DELETE" });
+@@ -377,7 +427,7 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
+         </StatusBanner>
+       ) : null}
+ 
+-      <CameraFeed elementId={CAMERA_ID} />
++      <CameraFeed elementId={CAMERA_ID} isProcessingScan={isProcessingScan} />
+ 
+       <div className="mt-3 flex gap-2">
+         {scanner.torchAvailable ? (
+diff --git a/hs86e-tickets/src/hooks/useQrScanner.ts b/hs86e-tickets/src/hooks/useQrScanner.ts
+index 269e86a..8c01a68 100644
+--- a/hs86e-tickets/src/hooks/useQrScanner.ts
++++ b/hs86e-tickets/src/hooks/useQrScanner.ts
+@@ -60,11 +60,11 @@ export function useQrScanner(
+     if (value === lastValue.current && now - lastAt.current < SCAN_DEBOUNCE_MS) return;
+     lastValue.current = value;
+     lastAt.current = now;
++    // Lock frame callbacks until ScannerView explicitly resumes after its
++    // minimum three-second result hold. Do not auto-unpause here: a slow API
++    // request must not let the same decoded frame enter validation again.
+     paused.current = true;
+     onScanRef.current(value);
+-    window.setTimeout(() => {
+-      paused.current = false;
+-    }, SCAN_DEBOUNCE_MS);
+   }, []);
+ 
+   useEffect(() => {
+diff --git a/hs86e-tickets/src/hooks/useScanQueue.ts b/hs86e-tickets/src/hooks/useScanQueue.ts
+index 9a793c8..b80df6a 100644
+--- a/hs86e-tickets/src/hooks/useScanQueue.ts
++++ b/hs86e-tickets/src/hooks/useScanQueue.ts
+@@ -14,6 +14,10 @@ function writeQueue(items: QueuedScan[]) {
+   window.localStorage.setItem(SCAN_QUEUE_KEY, JSON.stringify(items));
+ }
+ 
++function queueKey(item: Pick<QueuedScan, "ticketId" | "scannedAt">) {
++  return `${item.ticketId}\u0000${item.scannedAt}`;
++}
++
+ export function useScanQueue() {
+   const [queue, setQueue] = useState<QueuedScan[]>([]);
+   const [syncing, setSyncing] = useState(false);
+@@ -21,6 +25,11 @@ export function useScanQueue() {
+ 
+   useEffect(() => {
+     setQueue(readQueue());
++    const onStorage = (event: StorageEvent) => {
++      if (event.key === SCAN_QUEUE_KEY) setQueue(readQueue());
++    };
++    window.addEventListener("storage", onStorage);
++    return () => window.removeEventListener("storage", onStorage);
+   }, []);
+ 
+   const persist = useCallback((items: QueuedScan[]) => {
+@@ -29,25 +38,36 @@ export function useScanQueue() {
+   }, []);
+ 
+   const enqueue = useCallback(
+-    (scan: Omit<QueuedScan, "synced">) => {
++    (scan: Omit<QueuedScan, "synced" | "failed" | "lastError">) => {
+       const current = readQueue();
+-      if (current.some((item) => item.ticketId === scan.ticketId && !item.synced)) {
++      if (current.some((item) => item.ticketId === scan.ticketId && !item.synced && !item.failed)) {
+         return;
+       }
+-      persist([...current, { ...scan, synced: false }]);
++      persist([
++        ...current,
++        { ...scan, synced: false, failed: false, lastError: undefined },
++      ]);
+     },
+     [persist],
+   );
+ 
+-  const pending = useMemo(() => queue.filter((item) => !item.synced), [queue]);
++  const pending = useMemo(
++    () => queue.filter((item) => !item.synced && !item.failed),
++    [queue],
++  );
++  const failed = useMemo(() => queue.filter((item) => !item.synced && item.failed), [queue]);
+ 
+-  const replay = useCallback(async () => {
++  /** `includeFailed=true` is the explicit operator retry from Scan History. */
++  const replay = useCallback(async (includeFailed = false) => {
+     if ((typeof navigator !== "undefined" && !navigator.onLine) || replayInFlight.current) return;
+-    const unsynced = readQueue().filter((item) => !item.synced);
++    const unsynced = readQueue().filter(
++      (item) => !item.synced && (includeFailed || !item.failed),
++    );
+     if (unsynced.length === 0) return;
++
+     replayInFlight.current = true;
+     setSyncing(true);
+-    const settled = new Set<string>();
++    const updates = new Map<string, Partial<QueuedScan>>();
+ 
+     try {
+       // Flush server-recorded 403 admissions first. Client-manifest admissions
+@@ -71,14 +91,37 @@ export function useScanQueue() {
+             }),
+           });
+           const data = (await res.json().catch(() => null)) as
+-            | { verdict?: string; wpPermissionDenied?: boolean; wpSyncPending?: boolean }
++            | {
++                verdict?: string;
++                message?: string;
++                error?: string;
++                wpPermissionDenied?: boolean;
++                wpSyncPending?: boolean;
++              }
+             | null;
++          const key = queueKey(item);
+           const remotelySettled =
+             res.ok &&
+             (data?.verdict === "valid" || data?.verdict === "duplicate") &&
+             !data.wpPermissionDenied &&
+             !data.wpSyncPending;
+-          if (remotelySettled) settled.add(`${item.ticketId}\u0000${item.scannedAt}`);
++          if (remotelySettled) {
++            updates.set(key, { synced: true, failed: false, lastError: undefined });
++            continue;
++          }
++
++          const terminalVerdict =
++            data?.verdict === "invalid" ||
++            data?.verdict === "canceled" ||
++            data?.verdict === "transferred" ||
++            data?.verdict === "expired";
++          if (res.ok && terminalVerdict && !data?.wpPermissionDenied && !data?.wpSyncPending) {
++            updates.set(key, {
++              synced: false,
++              failed: true,
++              lastError: data.message || "Remote validation rejected this scan.",
++            });
++          }
+         } catch {
+           break;
+         }
+@@ -87,9 +130,10 @@ export function useScanQueue() {
+       // Merge with current localStorage so a scan enqueued mid-replay is not lost.
+       const latest = readQueue();
+       persist(
+-        latest.map((item) =>
+-          settled.has(`${item.ticketId}\u0000${item.scannedAt}`) ? { ...item, synced: true } : item,
+-        ),
++        latest.map((item) => {
++          const update = updates.get(queueKey(item));
++          return update ? { ...item, ...update } : item;
++        }),
+       );
+     } finally {
+       replayInFlight.current = false;
+@@ -115,5 +159,14 @@ export function useScanQueue() {
+     if (pending.length > 0) void replay();
+   }, [pending.length, replay]);
+ 
+-  return { queue, pending, pendingCount: pending.length, enqueue, replay, syncing };
++  return {
++    queue,
++    pending,
++    pendingCount: pending.length,
++    failed,
++    failedCount: failed.length,
++    enqueue,
++    replay,
++    syncing,
++  };
+ }
+diff --git a/hs86e-tickets/src/lib/constants.ts b/hs86e-tickets/src/lib/constants.ts
+index c57d2b6..7ee4f50 100644
+--- a/hs86e-tickets/src/lib/constants.ts
++++ b/hs86e-tickets/src/lib/constants.ts
+@@ -33,7 +33,7 @@ export const MANIFEST_DB = "hs86e_scanner_v1";
+ export const MANIFEST_STORE = "attendees";
+ export const MANIFEST_META_STORE = "meta";
+ 
+-export const SCAN_DEBOUNCE_MS = 1500;
++export const SCAN_DEBOUNCE_MS = 3000;
+ export const SCAN_QRBOX = 250;
+ export const SCAN_FPS = 10;
+ export const SCAN_FLASH_MS = 300;
+diff --git a/hs86e-tickets/src/lib/types.ts b/hs86e-tickets/src/lib/types.ts
+index 036d293..ab21822 100644
+--- a/hs86e-tickets/src/lib/types.ts
++++ b/hs86e-tickets/src/lib/types.ts
+@@ -149,6 +149,9 @@ export interface QueuedScan {
+   scannedAt: string;
+   deviceId: string;
+   synced: boolean;
++  /** Terminal replay response; retained in local history for operator review. */
++  failed?: boolean;
++  lastError?: string;
+ }
+ 
+ export interface ManifestAttendee {

@@ -10,7 +10,7 @@ export function ScanResultFlash({ verdict }: { verdict: ScanVerdict | null }) {
       className={cn(
         "pointer-events-none fixed inset-0 z-50 animate-flash-in",
         verdict === "valid" && "bg-emerald-bright/80",
-        verdict === "duplicate" && "bg-amber-bright/75",
+        verdict === "duplicate" && "bg-danger/85",
         (verdict === "invalid" ||
           verdict === "canceled" ||
           verdict === "transferred" ||

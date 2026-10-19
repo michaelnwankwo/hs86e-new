@@ -149,6 +149,9 @@ export interface QueuedScan {
   scannedAt: string;
   deviceId: string;
   synced: boolean;
+  /** Terminal replay response; retained in local history for operator review. */
+  failed?: boolean;
+  lastError?: string;
 }
 
 export interface ManifestAttendee {

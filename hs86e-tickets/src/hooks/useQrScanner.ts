@@ -60,11 +60,11 @@ export function useQrScanner(
     if (value === lastValue.current && now - lastAt.current < SCAN_DEBOUNCE_MS) return;
     lastValue.current = value;
     lastAt.current = now;
+    // Lock frame callbacks until ScannerView explicitly resumes after its
+    // minimum three-second result hold. Do not auto-unpause here: a slow API
+    // request must not let the same decoded frame enter validation again.
     paused.current = true;
     onScanRef.current(value);
-    window.setTimeout(() => {
-      paused.current = false;
-    }, SCAN_DEBOUNCE_MS);
   }, []);
 
   useEffect(() => {

@@ -33,7 +33,7 @@ export const MANIFEST_DB = "hs86e_scanner_v1";
 export const MANIFEST_STORE = "attendees";
 export const MANIFEST_META_STORE = "meta";
 
-export const SCAN_DEBOUNCE_MS = 1500;
+export const SCAN_DEBOUNCE_MS = 3000;
 export const SCAN_QRBOX = 250;
 export const SCAN_FPS = 10;
 export const SCAN_FLASH_MS = 300;
