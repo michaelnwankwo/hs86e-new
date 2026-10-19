@@ -120,7 +120,9 @@ export interface ScanValidateRequest {
 }
 
 export interface ScanValidateResponse {
-  verdict: ScanVerdict;
+  /** Set when the server confirms a queued scan was accepted or already settled. */
+  success?: boolean;
+  verdict: ScanVerdict | "already_synced";
   offline?: boolean;
   /** FooEvents returned HTTP 403; the scanner may consult its trusted cached manifest. */
   wpPermissionDenied?: boolean;

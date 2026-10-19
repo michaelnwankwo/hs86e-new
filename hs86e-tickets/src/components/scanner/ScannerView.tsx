@@ -56,9 +56,11 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
   const applyFeedback = useCallback(
     async (next: ScanValidateResponse) => {
       setResult(next);
-      setFlash(next.verdict);
-      if (next.verdict === "valid") await play("success");
-      else if (next.verdict === "duplicate" || next.verdict === "expired") await play("warn");
+      const feedbackVerdict: ScanVerdict =
+        next.verdict === "already_synced" ? "valid" : next.verdict;
+      setFlash(feedbackVerdict);
+      if (feedbackVerdict === "valid") await play("success");
+      else if (feedbackVerdict === "duplicate" || feedbackVerdict === "expired") await play("warn");
       else {
         await play("fail");
         if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(200);

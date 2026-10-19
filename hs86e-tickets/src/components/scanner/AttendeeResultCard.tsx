@@ -14,7 +14,7 @@ function formatProcessedAt(value?: string) {
 }
 
 export function AttendeeResultCard({ result }: { result: ScanValidateResponse }) {
-  const valid = result.verdict === "valid";
+  const valid = result.verdict === "valid" || result.verdict === "already_synced";
   const duplicate = result.verdict === "duplicate";
   const transferred = result.verdict === "transferred";
   const queuedSync = valid && Boolean(result.offline || result.wpSyncPending);

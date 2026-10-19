@@ -4,6 +4,7 @@ import Link from "next/link";
 import { RefreshCw } from "lucide-react";
 import { useScanQueue } from "@/hooks/useScanQueue";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useToast } from "@/components/ui/Toast";
 import { decodeTicketPayload } from "@/lib/ticket-payload";
 
 function formatTimestamp(value: string) {
@@ -14,9 +15,22 @@ function formatTimestamp(value: string) {
 }
 
 export function HistoryClient() {
-  const { queue, pendingCount, failedCount, replay, syncing } = useScanQueue();
+  const { queue, pendingCount, flushOfflineQueue, syncing } = useScanQueue();
   const online = useOnlineStatus();
-  const flushableCount = pendingCount + failedCount;
+  const toast = useToast();
+
+  async function flushQueue() {
+    try {
+      const outcome = await flushOfflineQueue();
+      if (outcome.failed > 0) {
+        toast(`Sync failed for ${outcome.failed} items. Retrying when online...`);
+      } else if (outcome.synced > 0) {
+        toast(`Synced ${outcome.synced} queued scan${outcome.synced === 1 ? "" : "s"}.`);
+      }
+    } catch {
+      toast(`Sync failed for ${pendingCount} items. Retrying when online...`);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
@@ -25,7 +39,7 @@ export function HistoryClient() {
         <p className="mt-1 text-sm text-ink-muted">Local queue history and sync status</p>
       </div>
 
-      <section aria-label="Scan summary" className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <section aria-label="Scan summary" className="mb-4 grid grid-cols-2 gap-2">
         <div className="rounded-xl border border-gold/20 bg-surface-raised px-3 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-dim">Queue scans</p>
           <p className="mt-1 text-xl font-bold text-ink">{queue.length}</p>
@@ -34,16 +48,12 @@ export function HistoryClient() {
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-dim">Pending sync</p>
           <p className="mt-1 text-xl font-bold text-gold-champagne">{pendingCount}</p>
         </div>
-        <div className="rounded-xl border border-danger-bright/30 bg-surface-raised px-3 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-dim">Needs review</p>
-          <p className="mt-1 text-xl font-bold text-danger-bright">{failedCount}</p>
-        </div>
       </section>
 
       <button
         type="button"
-        onClick={() => void replay(true)}
-        disabled={syncing || flushableCount === 0 || !online}
+        onClick={() => void flushQueue()}
+        disabled={syncing || pendingCount === 0 || !online}
         className="mb-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-gold/35 bg-gold/10 px-4 text-sm font-semibold text-gold-champagne transition hover:bg-gold/15 disabled:cursor-not-allowed disabled:opacity-45"
       >
         <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
@@ -61,12 +71,10 @@ export function HistoryClient() {
             .reverse()
             .map((row) => {
               const ticketId = decodeTicketPayload(row.ticketId) || row.ticketId;
-              const status = row.synced ? "SYNCED" : row.failed ? "FAILED" : "PENDING";
+              const status = row.synced ? "SYNCED" : "PENDING";
               const statusClass = row.synced
                 ? "border-emerald-300/25 bg-emerald-950/45 text-emerald-200"
-                : row.failed
-                  ? "border-danger-bright/35 bg-danger/20 text-rose-100"
-                  : "border-gold/30 bg-gold/10 text-gold-champagne";
+                : "border-gold/30 bg-gold/10 text-gold-champagne";
 
               return (
                 <li

@@ -97,6 +97,26 @@ async function postFoo<T>(path: string, body: Record<string, unknown>) {
   return data;
 }
 
+function textConfirmsAlreadyCheckedIn(value: unknown) {
+  const fields =
+    value && typeof value === "object"
+      ? Object.values(value as Record<string, unknown>)
+      : [value];
+  const text = fields
+    .filter((field) => typeof field === "string" || typeof field === "number")
+    .map(String)
+    .join(" ");
+  return /\bduplicate\b|\balready(?:\s+been)?\s+(?:checked[\s_-]*in|scanned|used)\b|ticket.{0,80}already.{0,40}checked[\s_-]*in/i.test(
+    text,
+  );
+}
+
+function isAlreadyCheckedInError(error: unknown) {
+  const responseData = (error as { response?: { data?: unknown } } | null)?.response?.data;
+  const message = error instanceof Error ? error.message : String(error);
+  return textConfirmsAlreadyCheckedIn(responseData) || textConfirmsAlreadyCheckedIn(message);
+}
+
 export async function fetchTicketsForOrder(orderId: number): Promise<IssuedTicket[]> {
   if (!hasFooEventsAuth()) return [];
   const order = await getOrder(orderId);
@@ -251,13 +271,24 @@ export async function checkInTicket(input: {
       });
       return interpretCheckin(data, input.ticketId);
     } catch (second) {
+      // A few FooEvents versions return HTTP 400/409 for an idempotent
+      // already-checked-in result. Preserve that confirmation instead of
+      // turning a settled replay into an infrastructure error.
+      if (isAlreadyCheckedInError(first) || isAlreadyCheckedInError(second)) {
+        return { verdict: "duplicate" as const, ticket: current, message: "Already checked in" };
+      }
+
       // Classify the failure so the gate gets actionable feedback:
       //  - 401/403: WordPress rejected the Application Password → credential fix
       //  - anything else (5xx, timeouts, missing endpoints): infrastructure
       //    outage → throw, so /api/scan/validate answers 503 and the scanner
       //    queues the scan against the offline manifest instead of dead-ending.
       const status = Number(
-        (first as { status?: number })?.status ?? (second as { status?: number })?.status ?? 0,
+        (first as { status?: number; response?: { status?: number } })?.status ??
+          (first as { response?: { status?: number } })?.response?.status ??
+          (second as { status?: number; response?: { status?: number } })?.status ??
+          (second as { response?: { status?: number } })?.response?.status ??
+          0,
       );
       if (status === 401 || status === 403) {
         const detail = second instanceof Error ? second.message : String(second);
@@ -323,6 +354,11 @@ export async function checkInTicket(input: {
 
 function interpretCheckin(data: unknown, ticketId: string) {
   const payload = (data ?? {}) as Record<string, unknown>;
+  const details = [payload.status, payload.verdict, payload.result, payload.message, payload.output, payload.error]
+    .filter((value) => value !== undefined && value !== null)
+    .map(String)
+    .join(" ")
+    .toLowerCase();
   const status = String(
     payload.status || payload.verdict || payload.result || payload.message || payload.output || "",
   ).toLowerCase();
@@ -330,7 +366,14 @@ function interpretCheckin(data: unknown, ticketId: string) {
     ? mapTicket(payload.ticket as FooTicket, { ticketId })
     : undefined;
 
-  if (status.includes("already") || status.includes("duplicate")) {
+  // Some FooEvents installs return status="error" with the useful
+  // already-checked-in confirmation only in message/error text. Treat that
+  // specific idempotent response as a settled duplicate, not as a hard error.
+  const alreadyCheckedIn =
+    /duplicate/.test(details) ||
+    /already[\s_-]+(?:been[\s_-]+)?(?:checked[\s_-]*in|scanned|used)/.test(details) ||
+    /ticket[\s\S]{0,80}already[\s_-]+(?:been[\s_-]+)?checked[\s_-]*in/.test(details);
+  if (alreadyCheckedIn) {
     return { verdict: "duplicate" as const, ticket, message: "Already checked in" };
   }
   if (status.includes("cancel") || status.includes("refund")) {

@@ -21,6 +21,8 @@ const schema = z.object({
   eventId: z.string().min(1),
   deviceId: z.string().min(2).max(64),
   scannedAt: z.string().datetime().optional(),
+  /** True only for a local queue replay; enables idempotent already-synced replies. */
+  replay: z.boolean().optional(),
 });
 
 function passMessage(ticket: IssuedTicket, used: boolean) {
@@ -30,6 +32,22 @@ function passMessage(ticket: IssuedTicket, used: boolean) {
   return used
     ? "ALREADY SCANNED / ADMISSION DENIED"
     : `Ticket ${index} of ${total} checked in`;
+}
+
+/** Idempotent confirmation used only for queued replay requests. */
+function alreadySyncedResponse(ticketId: string, ticket?: IssuedTicket) {
+  return NextResponse.json({
+    success: true,
+    verdict: "already_synced",
+    ticketId,
+    attendeeName: ticket?.attendeeName,
+    attendeeEmail: ticket?.attendeeEmail,
+    attendeePhone: ticket?.attendeePhone,
+    tier: ticket?.tier,
+    eventName: ticket?.eventName,
+    checkedInAt: ticket?.checkedInAt,
+    message: "Ticket check-in confirmed",
+  } satisfies ScanValidateResponse);
 }
 
 // RSG-ENG-SEC-006 Phase 2 — directive-exact copy for stale dynamic passes.
@@ -215,7 +233,7 @@ async function handlePost(request: Request) {
     return NextResponse.json({ error: "Invalid scan payload" }, { status: 400 });
   }
 
-  const { eventId, deviceId, scannedAt } = parsed.data;
+  const { eventId, deviceId, scannedAt, replay } = parsed.data;
   const when = scannedAt || new Date().toISOString();
 
   const local = resolveTicket(ticketId);
@@ -254,6 +272,7 @@ async function handlePost(request: Request) {
     return await withTicketLock(ticketId, async () => {
       const fresh = resolveTicket(ticketId);
       if (fresh?.status === "Checked In") {
+        if (replay) return alreadySyncedResponse(ticketId, fresh);
         return NextResponse.json({
           verdict: "duplicate",
           ticketId,
@@ -274,6 +293,7 @@ async function handlePost(request: Request) {
       const demoCas = checkInDemoTicket(ticketId, when);
       if (!ledgerCas.transitioned && !demoCas.transitioned) {
         const seen = fresh ?? local;
+        if (replay) return alreadySyncedResponse(ticketId, seen);
         return NextResponse.json({
           verdict: "duplicate",
           ticketId,
@@ -322,6 +342,7 @@ async function handlePost(request: Request) {
   // the fallback ledger is the only authority for that re-scan.
   const localFallback = getFallbackCheckin(ticketId);
   if (localFallback) {
+    if (replay && localFallback.synced) return alreadySyncedResponse(ticketId);
     return NextResponse.json({
       verdict: "duplicate",
       ticketId,
@@ -353,6 +374,7 @@ async function handlePost(request: Request) {
       });
       if (!recorded) {
         const previous = getFallbackCheckin(ticketId);
+        if (replay && previous?.synced) return alreadySyncedResponse(ticketId);
         return NextResponse.json({
           verdict: "duplicate",
           ticketId,
@@ -388,12 +410,15 @@ async function handlePost(request: Request) {
         wpDetail: "HTTP 403 — FooEvents capability check refused the check-in write",
       });
       if (!recorded) {
+        const previous = getFallbackCheckin(ticketId);
+        if (replay && previous?.synced) return alreadySyncedResponse(ticketId, result.ticket);
         return NextResponse.json({
           verdict: "duplicate",
           ticketId,
           attendeeName: result.ticket?.attendeeName,
           eventName: result.ticket?.eventName,
-          wpSyncPending: true,
+          checkedInAt: previous?.checkedInAt,
+          wpSyncPending: Boolean(previous && !previous.synced),
           message: "ALREADY SCANNED / ADMISSION DENIED",
         } satisfies ScanValidateResponse);
       }
@@ -409,6 +434,10 @@ async function handlePost(request: Request) {
         wpSyncPending: true,
         message: result.message,
       } satisfies ScanValidateResponse);
+    }
+
+    if (replay && result.verdict === "duplicate" && !result.wpPermissionDenied && !result.wpBlocked403) {
+      return alreadySyncedResponse(ticketId, result.ticket);
     }
 
     return NextResponse.json({
