@@ -159,6 +159,28 @@ function tokenRejected(
   return null;
 }
 
+/**
+ * Verify a self-contained HS86 QR when the server's ticket ledger is absent.
+ * This proves the QR was minted by this app. The token does not encode event,
+ * current transfer ownership, or prior-use state, so this emergency path uses
+ * a local CAS ledger; unsigned FooEvents IDs must instead exist in the trusted
+ * scanner manifest before the client can admit them.
+ */
+function verifyRawScanSignature(ticketId: string, raw: string): boolean {
+  const parsed = parseTicketPayload(raw);
+  if (!parsed.signed || parsed.ticketId !== ticketId || !parsed.nonce || !parsed.signature) {
+    return false;
+  }
+  if (parsed.counter !== undefined) {
+    if (!verifyTotpPayload(ticketId, parsed.nonce, parsed.counter, parsed.signature)) return false;
+    // A signature-only emergency admission must be live now; unlike normal
+    // local-ledger replay, do not let a client-supplied scannedAt revive an
+    // expired TOTP when there is no current ticket row to bind it to.
+    return Math.abs(parsed.counter - totpCounter()) <= 1;
+  }
+  return verifyHs86Payload(ticketId, parsed.nonce, parsed.signature);
+}
+
 export async function POST(request: Request) {
   try {
     return await handlePost(request);
@@ -306,12 +328,52 @@ async function handlePost(request: Request) {
       attendeeName: localFallback.attendeeName,
       eventName: localFallback.eventName,
       checkedInAt: localFallback.checkedInAt,
+      wpSyncPending: !localFallback.synced,
       message: "ALREADY SCANNED / ADMISSION DENIED",
     } satisfies ScanValidateResponse);
   }
 
   return await withTicketLock(ticketId, async () => {
     const result = await checkInTicket({ ticketId, eventId, deviceId, scannedAt: when });
+
+    // If the WP read is blocked too, an authentic HS86-signed QR is still
+    // cryptographic proof that this app issued the pass. Record it with CAS so
+    // a re-scan on this function instance becomes a duplicate. Plain, unknown
+    // FooEvents IDs still need a trusted local manifest (client-side fallback).
+    if (result.wpPermissionDenied && !result.wpBlocked403 && verifyRawScanSignature(ticketId, raw)) {
+      const recorded = recordFallbackCheckin({
+        ticketId,
+        eventId,
+        checkedInAt: when,
+        deviceId,
+        attendeeName: result.ticket?.attendeeName || "Verified ticket holder",
+        eventName: result.ticket?.eventName,
+        synced: false,
+        wpDetail: "HTTP 403 — app HMAC/TOTP verified while FooEvents permission check was blocked",
+      });
+      if (!recorded) {
+        const previous = getFallbackCheckin(ticketId);
+        return NextResponse.json({
+          verdict: "duplicate",
+          ticketId,
+          attendeeName: previous?.attendeeName || "Verified ticket holder",
+          eventName: previous?.eventName,
+          checkedInAt: previous?.checkedInAt,
+          wpSyncPending: Boolean(previous && !previous.synced),
+          message: "ALREADY SCANNED / ADMISSION DENIED",
+        } satisfies ScanValidateResponse);
+      }
+      return NextResponse.json({
+        verdict: "valid",
+        ticketId,
+        attendeeName: result.ticket?.attendeeName || "Verified ticket holder",
+        eventName: result.ticket?.eventName,
+        checkedInAt: when,
+        wpSyncPending: true,
+        signatureVerified: true,
+        message: "QR signature verified — checked in locally; WordPress blocked the write (403). Remote sync is queued.",
+      } satisfies ScanValidateResponse);
+    }
 
     if (result.verdict === "valid" && result.wpBlocked403) {
       // CAS: only one of the racing staff devices records (and admits) it.
@@ -331,6 +393,7 @@ async function handlePost(request: Request) {
           ticketId,
           attendeeName: result.ticket?.attendeeName,
           eventName: result.ticket?.eventName,
+          wpSyncPending: true,
           message: "ALREADY SCANNED / ADMISSION DENIED",
         } satisfies ScanValidateResponse);
       }
@@ -343,6 +406,7 @@ async function handlePost(request: Request) {
         tier: result.ticket?.tier,
         eventName: result.ticket?.eventName,
         checkedInAt: when,
+        wpSyncPending: true,
         message: result.message,
       } satisfies ScanValidateResponse);
     }
@@ -356,6 +420,8 @@ async function handlePost(request: Request) {
       tier: result.ticket?.tier,
       eventName: result.ticket?.eventName,
       checkedInAt: result.ticket?.checkedInAt || (result.verdict === "valid" ? when : undefined),
+      wpPermissionDenied: result.wpPermissionDenied,
+      signatureVerified: result.wpPermissionDenied ? verifyRawScanSignature(ticketId, raw) : undefined,
       message: result.verdict === "duplicate" ? "ALREADY SCANNED / ADMISSION DENIED" : result.message,
     } satisfies ScanValidateResponse);
   });

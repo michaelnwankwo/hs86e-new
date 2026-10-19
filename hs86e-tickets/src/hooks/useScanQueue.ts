@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QUEUE_REPLAY_POLL_MS, SCAN_QUEUE_KEY } from "@/lib/constants";
 import { safeJson } from "@/lib/utils";
 import type { QueuedScan } from "@/lib/types";
@@ -17,6 +17,7 @@ function writeQueue(items: QueuedScan[]) {
 export function useScanQueue() {
   const [queue, setQueue] = useState<QueuedScan[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const replayInFlight = useRef(false);
 
   useEffect(() => {
     setQueue(readQueue());
@@ -41,36 +42,59 @@ export function useScanQueue() {
   const pending = useMemo(() => queue.filter((item) => !item.synced), [queue]);
 
   const replay = useCallback(async () => {
-    if (typeof navigator !== "undefined" && !navigator.onLine) return;
-    const current = readQueue();
-    const unsynced = current.filter((item) => !item.synced);
+    if ((typeof navigator !== "undefined" && !navigator.onLine) || replayInFlight.current) return;
+    const unsynced = readQueue().filter((item) => !item.synced);
     if (unsynced.length === 0) return;
+    replayInFlight.current = true;
     setSyncing(true);
-    const next = [...current];
-    for (const item of unsynced) {
+    const settled = new Set<string>();
+
+    try {
+      // Flush server-recorded 403 admissions first. Client-manifest admissions
+      // are retried through validate below once WordPress permission is restored.
       try {
-        const res = await fetch("/api/scan/validate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ticketId: item.ticketId,
-            eventId: item.eventId,
-            deviceId: item.deviceId,
-            scannedAt: item.scannedAt,
-          }),
-        });
-        if (res.ok || res.status === 409) {
-          const idx = next.findIndex(
-            (row) => row.ticketId === item.ticketId && row.scannedAt === item.scannedAt,
-          );
-          if (idx >= 0) next[idx] = { ...next[idx], synced: true };
-        }
+        await fetch("/api/scan/wp-sync", { method: "POST" });
       } catch {
-        break;
+        // Keep the scan queue; a later replay will retry.
       }
+
+      for (const item of unsynced) {
+        try {
+          const res = await fetch("/api/scan/validate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ticketId: item.ticketId,
+              eventId: item.eventId,
+              deviceId: item.deviceId,
+              scannedAt: item.scannedAt,
+            }),
+          });
+          const data = (await res.json().catch(() => null)) as
+            | { verdict?: string; wpPermissionDenied?: boolean; wpSyncPending?: boolean }
+            | null;
+          const remotelySettled =
+            res.ok &&
+            (data?.verdict === "valid" || data?.verdict === "duplicate") &&
+            !data.wpPermissionDenied &&
+            !data.wpSyncPending;
+          if (remotelySettled) settled.add(`${item.ticketId}\u0000${item.scannedAt}`);
+        } catch {
+          break;
+        }
+      }
+
+      // Merge with current localStorage so a scan enqueued mid-replay is not lost.
+      const latest = readQueue();
+      persist(
+        latest.map((item) =>
+          settled.has(`${item.ticketId}\u0000${item.scannedAt}`) ? { ...item, synced: true } : item,
+        ),
+      );
+    } finally {
+      replayInFlight.current = false;
+      setSyncing(false);
     }
-    persist(next);
-    setSyncing(false);
   }, [persist]);
 
   useEffect(() => {
@@ -81,12 +105,15 @@ export function useScanQueue() {
     const timer = window.setInterval(() => {
       void replay();
     }, QUEUE_REPLAY_POLL_MS);
-    void replay();
     return () => {
       window.removeEventListener("online", onOnline);
       window.clearInterval(timer);
     };
   }, [replay]);
+
+  useEffect(() => {
+    if (pending.length > 0) void replay();
+  }, [pending.length, replay]);
 
   return { queue, pending, pendingCount: pending.length, enqueue, replay, syncing };
 }

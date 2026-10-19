@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Flashlight, History, LogOut, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { StatusBanner } from "@/components/ui/StatusBanner";
-import { useOfflineManifest } from "@/hooks/useOfflineManifest";
+import { useOfflineManifest, type ManifestAdmission } from "@/hooks/useOfflineManifest";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useQrScanner } from "@/hooks/useQrScanner";
 import { useScanQueue } from "@/hooks/useScanQueue";
@@ -182,8 +182,110 @@ export function ScannerView({ events }: { events: EventProduct[] }) {
           failure.status = res.status;
           throw failure;
         }
+
+        // FooEvents 403 is a permission refusal, not a ticket verdict. Admit
+        // only when this scanner's existing IndexedDB manifest independently
+        // confirms an unused attendee for the selected event. Unknown IDs are
+        // still denied; no arbitrary ticketId is trusted on a 403.
+        if (data.wpPermissionDenied && data.verdict === "invalid") {
+          const scannedPayload = parseTicketPayload(raw);
+          if (scannedPayload.signature && !data.signatureVerified) {
+            await applyFeedback({
+              verdict: "invalid",
+              ticketId,
+              message: "QR signature is not valid — admission denied.",
+            });
+            return;
+          }
+
+          let localAdmission: ManifestAdmission;
+          try {
+            localAdmission = await manifest.admitCached(ticketId, eventId, nonce, scannedAt);
+          } catch (manifestError) {
+            console.warn("[hs86e] 403 fallback could not read/commit the local manifest:", manifestError);
+            await applyFeedback({
+              ...data,
+              message: "WordPress refused check-in (403), and the trusted local manifest could not be read — admission denied.",
+            });
+            return;
+          }
+          if (localAdmission.outcome === "admitted" && localAdmission.attendee) {
+            const attendee = localAdmission.attendee;
+            rememberLocal(ticketId);
+            enqueue({ ticketId: raw, eventId, scannedAt, deviceId });
+            await applyFeedback({
+              verdict: "valid",
+              ticketId,
+              attendeeName: attendee.attendeeName,
+              attendeeEmail: attendee.attendeeEmail,
+              attendeePhone: attendee.attendeePhone,
+              tier: attendee.tier,
+              eventName: attendee.eventName,
+              checkedInAt: scannedAt,
+              message: "Checked in locally — FooEvents refused the write (403). Remote sync is queued.",
+              wpSyncPending: true,
+              signatureVerified: data.signatureVerified,
+            });
+            return;
+          }
+
+          if (localAdmission.outcome === "duplicate") {
+            const attendee = localAdmission.attendee;
+            await applyFeedback({
+              verdict: "duplicate",
+              ticketId,
+              attendeeName: attendee?.attendeeName,
+              tier: attendee?.tier,
+              eventName: attendee?.eventName,
+              checkedInAt: attendee?.checkedInAt,
+              message: "ALREADY SCANNED / ADMISSION DENIED",
+            });
+            return;
+          }
+          if (localAdmission.outcome === "canceled") {
+            await applyFeedback({
+              verdict: "canceled",
+              ticketId,
+              attendeeName: localAdmission.attendee?.attendeeName,
+              message: "Ticket canceled or unpaid — admission denied.",
+            });
+            return;
+          }
+          if (localAdmission.outcome === "transferred") {
+            await applyFeedback({
+              verdict: "transferred",
+              revoked: true,
+              ticketId,
+              attendeeName: localAdmission.attendee?.attendeeName,
+              tier: localAdmission.attendee?.tier,
+              eventName: localAdmission.attendee?.eventName,
+              message: TRANSFER_VOID_MESSAGE,
+              statusLabel: TRANSFER_VOID_STATUS,
+            });
+            return;
+          }
+          if (localAdmission.outcome === "wrong-event") {
+            await applyFeedback({
+              verdict: "invalid",
+              ticketId,
+              attendeeName: localAdmission.attendee?.attendeeName,
+              tier: localAdmission.attendee?.tier,
+              eventName: localAdmission.attendee?.eventName,
+              message: "Wrong event — admission denied.",
+            });
+            return;
+          }
+
+          await applyFeedback({
+            ...data,
+            message: "WordPress refused check-in (403), and this ticket is not in the trusted local manifest — admission denied.",
+          });
+          return;
+        }
+
         if (data.verdict === "valid" || data.verdict === "duplicate") rememberLocal(ticketId);
         if (data.verdict === "valid") await manifest.markCheckedIn(ticketId, scannedAt);
+        if (data.wpSyncPending) enqueue({ ticketId: raw, eventId, scannedAt, deviceId });
         await applyFeedback(data);
       } catch (err) {
         // Backend error / 401 / 5xx: queue the scan, keep actionable feedback,

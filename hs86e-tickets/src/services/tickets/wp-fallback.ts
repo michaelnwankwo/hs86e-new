@@ -2,12 +2,12 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 /**
- * Local ledger for check-ins that WordPress REFUSED to record (403 on an
- * authenticated request — FooEvents capability gap). The gate still admits
- * the attendee because FooEvents itself CONFIRMED the ticket exists and is
- * "Not Checked In" (read succeeded, only the write was forbidden); the entry
- * is kept here so re-scans are duplicates and so /api/scan/wp-sync can push
- * the check-in to WordPress once the capability is granted.
+ * Local ledger for check-ins WordPress REFUSED to record (403 on an
+ * authenticated request). Admission requires either FooEvents confirming an
+ * unused ticket, or a valid app HMAC/TOTP QR when its server ticket row is
+ * unavailable. Unsigned external IDs are admitted client-side only when the
+ * trusted IndexedDB manifest confirms them. Entries here make re-scans
+ * duplicates and let /api/scan/wp-sync reconcile server-recorded admissions.
  *
  * Same memory-mirror pattern as services/tickets/ledger.ts: serverless hosts
  * (Netlify) may have a read-only filesystem, so the in-memory copy keeps the

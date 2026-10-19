@@ -68,6 +68,65 @@ async function markLocal(ticketId: string, checkedInAt: string) {
   db.close();
 }
 
+export type ManifestAdmission = {
+  outcome: "admitted" | "duplicate" | "missing" | "wrong-event" | "canceled" | "transferred";
+  attendee?: ManifestAttendee;
+};
+
+/** Atomic, manifest-backed 403 fallback; preserves the existing IndexedDB schema. */
+async function admitFromManifest(
+  ticketId: string,
+  eventId: string,
+  nonce: string | undefined,
+  checkedInAt: string,
+): Promise<ManifestAdmission> {
+  const db = await openDb();
+  let result: ManifestAdmission = { outcome: "missing" };
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(MANIFEST_STORE, "readwrite");
+      const store = tx.objectStore(MANIFEST_STORE);
+      const req = store.get(ticketId);
+      req.onsuccess = () => {
+        const attendee = (req.result as ManifestAttendee | undefined) ?? null;
+        if (!attendee) {
+          result = { outcome: "missing" };
+          return;
+        }
+        if (attendee.eventId && eventId && attendee.eventId !== eventId) {
+          result = { outcome: "wrong-event", attendee };
+          return;
+        }
+        if (attendee.status === "Canceled" || attendee.status === "Unpaid") {
+          result = { outcome: "canceled", attendee };
+          return;
+        }
+        if (attendee.status === "Checked In") {
+          result = { outcome: "duplicate", attendee };
+          return;
+        }
+        if (attendee.qrToken && nonce !== attendee.qrToken) {
+          result = { outcome: "transferred", attendee };
+          return;
+        }
+        if (attendee.status !== "Not Checked In") {
+          result = { outcome: "duplicate", attendee };
+          return;
+        }
+        const checked = { ...attendee, status: "Checked In" as const, checkedInAt };
+        store.put(checked);
+        result = { outcome: "admitted", attendee: checked };
+      };
+      req.onerror = () => reject(req.error);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    return result;
+  } finally {
+    db.close();
+  }
+}
+
 async function readMeta(eventId: string) {
   const db = await openDb();
   const row = await new Promise<{ syncedAt?: string; count?: number } | null>((resolve, reject) => {
@@ -128,6 +187,11 @@ export function useOfflineManifest(eventId: string) {
     async (ticketId: string, checkedInAt: string) => markLocal(ticketId, checkedInAt),
     [],
   );
+  const admitCached = useCallback(
+    (ticketId: string, selectedEventId: string, nonce: string | undefined, checkedInAt: string) =>
+      admitFromManifest(ticketId, selectedEventId, nonce, checkedInAt),
+    [],
+  );
 
-  return { count, syncedAt, loading, error, refresh, lookup, markCheckedIn };
+  return { count, syncedAt, loading, error, refresh, lookup, markCheckedIn, admitCached };
 }

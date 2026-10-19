@@ -122,6 +122,12 @@ export interface ScanValidateRequest {
 export interface ScanValidateResponse {
   verdict: ScanVerdict;
   offline?: boolean;
+  /** FooEvents returned HTTP 403; the scanner may consult its trusted cached manifest. */
+  wpPermissionDenied?: boolean;
+  /** Locally admitted; remote FooEvents check-in remains queued. */
+  wpSyncPending?: boolean;
+  /** HMAC/TOTP signature on this QR was verified server-side. */
+  signatureVerified?: boolean;
   /** True when the scanned pass's QR has been rotated/voided by a transfer. */
   revoked?: boolean;
   ticketId: string;

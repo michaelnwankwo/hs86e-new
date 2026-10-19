@@ -182,6 +182,8 @@ export async function checkInTicket(input: {
    * ticket's existence, admitting it would trust an unverified ID string.
    */
   wpBlocked403?: boolean;
+  /** Any authenticated FooEvents HTTP 403; the scanner may try its cached manifest. */
+  wpPermissionDenied?: boolean;
 }> {
   if (!hasFooEventsAuth()) {
     // Distinct from a wrong password: nothing was even attempted. Throwing
@@ -220,8 +222,14 @@ export async function checkInTicket(input: {
       !!current &&
       !!pick(row as FooTicket, "WooCommerceEventsTicketID", "ticket_id", "ticketID", "ID") &&
       current.status === "Not Checked In";
-  } catch {
-    // continue to write — some installs reject get_single_ticket but accept update
+  } catch (precheckError) {
+    const precheckStatus = Number((precheckError as { status?: number })?.status ?? 0);
+    const precheckDetail = precheckError instanceof Error ? precheckError.message : String(precheckError);
+    console.warn(
+      `[hs86e] FooEvents get_single_ticket pre-check failed (HTTP ${precheckStatus || "network"}): ` +
+        `${precheckDetail.slice(0, 300)}. Ticket is not WP-confirmed; any 403 fallback must use the trusted local manifest.`,
+    );
+    // Continue to write — some installs reject get_single_ticket but accept update.
   }
 
   try {
@@ -288,6 +296,7 @@ export async function checkInTicket(input: {
               "Checked in locally — WordPress blocked the write (403 capability). " +
               "Scan queued for WordPress sync.",
             wpBlocked403: true,
+            wpPermissionDenied: true,
           };
         }
         return {
@@ -299,6 +308,7 @@ export async function checkInTicket(input: {
               : forbidden
                 ? "WordPress refused the check-in (403). FooEvents allows Administrator only by default — make hs86e-scanner an Administrator, or grant its role the app_event_magic_tickets capabilities."
                 : "FooEvents check-in failed. Confirm the hs86e-scanner Application Password.",
+          wpPermissionDenied: forbidden ? true : undefined,
         };
       }
       console.error(
