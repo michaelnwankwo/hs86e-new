@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Cinzel, Outfit } from "next/font/google";
 import { AppFooter } from "@/components/layout/AppFooter";
+import { AuthAwareShell } from "@/components/layout/AuthAwareShell";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Providers } from "@/components/layout/Providers";
@@ -83,12 +84,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {`window.__HS86E_DEFERRED_PROMPT=null;window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__HS86E_DEFERRED_PROMPT=e;window.dispatchEvent(new Event("hs86e-install-ready"));});`}
         </Script>
         <Providers>
-          <AppHeader />
-          <main className="safe-bottom mx-auto min-h-[calc(100dvh-4rem)] max-w-3xl">{children}</main>
-          <AppFooter />
-          <BottomNav />
-          <PWAInstallButton />
-          <IosInstallBanner />
+          <AuthAwareShell
+            header={<AppHeader />}
+            footer={<AppFooter />}
+            bottomNav={<BottomNav />}
+            pwaInstallButton={<PWAInstallButton />}
+            iosInstallBanner={<IosInstallBanner />}
+          >
+            {children}
+          </AuthAwareShell>
         </Providers>
       </body>
     </html>
