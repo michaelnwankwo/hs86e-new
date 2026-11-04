@@ -1,0 +1,15 @@
+
+> hs86e-tickets@1.0.0 build
+> next build
+
+   ▲ Next.js 15.5.25
+   - Environments: .env.local
+
+
+> Build error occurred
+[Error: EINVAL: invalid argument, readlink 'C:\Users\USER\OneDrive\Desktop\hs86e-new\hs86e-tickets\.next\diagnostics\framework.json'] {
+  errno: -4071,
+  code: 'EINVAL',
+  syscall: 'readlink',
+  path: 'C:\\Users\\USER\\OneDrive\\Desktop\\hs86e-new\\hs86e-tickets\\.next\\diagnostics\\framework.json'
+}

@@ -5,11 +5,20 @@
    ▲ Next.js 15.5.25
    - Environments: .env.local
 
+   Creating an optimized production build ...
+ ✓ (serwist) Bundling the service worker script with the URL '/sw.js' and the scope '/'...
+ ✓ Compiled successfully in 15.6s
+   Linting and checking validity of types ...
+Failed to compile.
 
-> Build error occurred
-[Error: EINVAL: invalid argument, readlink 'C:\Users\USER\OneDrive\Desktop\hs86e-new\hs86e-tickets\.next\diagnostics\build-diagnostics.json'] {
-  errno: -4071,
-  code: 'EINVAL',
-  syscall: 'readlink',
-  path: 'C:\\Users\\USER\\OneDrive\\Desktop\\hs86e-new\\hs86e-tickets\\.next\\diagnostics\\build-diagnostics.json'
-}
+./src/app/api/tickets/route-GHOST-SYSTEM.ts:5:3
+Type error: Module '"@/services/demo/store"' has no exported member 'findTicketsByEmail'.
+
+[0m [90m 3 |[39m [36mimport[39m {
+ [90m 4 |[39m   findTicket[33m,[39m
+[31m[1m>[22m[39m[90m 5 |[39m   findTicketsByEmail[33m,[39m
+ [90m   |[39m   [31m[1m^[22m[39m
+ [90m 6 |[39m   findTicketsByOrderId[33m,[39m
+ [90m 7 |[39m } [36mfrom[39m [32m"@/services/demo/store"[39m[33m;[39m
+ [90m 8 |[39m [36mimport[39m { ensureIssuedTickets } [36mfrom[39m [32m"@/services/tickets/issue"[39m[33m;[39m[0m
+Next.js build worker exited with code: 1 and signal: null
