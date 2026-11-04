@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 ﻿export const SITE_URL = (
+=======
+﻿/** Canonical site URL resolution for sitemap + metadata. */
+export const SITE_URL = (
+>>>>>>> c065eef5f3568d3698496bb24754df96c851a2b2
   process.env.NEXT_PUBLIC_APP_URL || "https://hs86eapp.netlify.app"
 ).replace(/\/+$/, "");
 
