@@ -12,7 +12,6 @@ export default async function CheckoutSuccessPage({
   searchParams: Promise<{
     order?: string;
     key?: string;
-    email?: string;
     status?: string;
     tx_ref?: string;
     transaction_id?: string;
@@ -32,7 +31,6 @@ export default async function CheckoutSuccessPage({
       <CheckoutSuccessGate
         order={q.order ?? ""}
         orderKey={q.key}
-        email={q.email}
         initialStatus={status}
       />
     </div>

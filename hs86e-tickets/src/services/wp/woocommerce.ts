@@ -270,24 +270,6 @@ export async function completeOrder(orderId: number, gatewayEventId: string) {
   return { order: data, already: false };
 }
 
-export async function listCompletedOrderIdsByEmail(email: string): Promise<number[]> {
-  const wc = wcClient();
-  const { data } = await wc.get<{ id: number; billing?: { email?: string }; status?: string }[]>(
-    "/orders",
-    {
-      params: {
-        search: email,
-        per_page: 20,
-        status: "completed,processing",
-      },
-    },
-  );
-  const rows = Array.isArray(data) ? data : [];
-  const token = email.trim().toLowerCase();
-  return rows
-    .filter((row) => (row.billing?.email || "").toLowerCase() === token)
-    .map((row) => row.id);
-}
 
 export async function addOrderMeta(orderId: number, key: string, value: string) {
   const wc = wcClient();

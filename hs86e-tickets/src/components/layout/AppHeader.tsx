@@ -26,7 +26,7 @@ type NavItem = {
  * Global header navigation.
  *
  * The public DOOR/SCAN tab is retired — staff reach the scanner through the
- * stealth triple-tap on the logo. Tab order: EVENTS → WALLET → GAMES.
+ * stealth triple-tap on the logo. Tab order: EVENTS → GAMES → ACCOUNT.
  */
 const NAV_ITEMS: NavItem[] = [
   {
@@ -34,12 +34,13 @@ const NAV_ITEMS: NavItem[] = [
     href: "/events",
     isActive: (p) => p.startsWith("/events") || p.startsWith("/checkout"),
   },
-  {
-    label: "Wallet",
-    href: "/tickets",
-    isActive: (p) => p.startsWith("/tickets") || p.startsWith("/wallet"),
-  },
   { label: "Games", href: "/games", isActive: (p) => p.startsWith("/games") },
+  {
+    label: "Account",
+    href: "/dashboard",
+    isActive: (p) =>
+      p.startsWith("/dashboard") || p.startsWith("/account") || p.startsWith("/tickets") || p.startsWith("/wallet"),
+  },
 ];
 
 export function AppHeader() {

@@ -50,7 +50,9 @@ export async function callWordPressCustomer(
   const body = await response.json().catch(() => null) as Record<string, unknown> | null;
   if (!response.ok) {
     const message = response.status === 401
-      ? "Email or password is incorrect"
+      ? "Incorrect email or password. Please try again."
+      : response.status === 403
+        ? "Sign-in was blocked. Refresh the page and try again."
       : response.status === 409
         ? "An account already uses that email"
         : response.status === 429

@@ -57,29 +57,14 @@ export function upsertIssuedTickets(tickets: IssuedTicket[]) {
   return tickets;
 }
 
-export function ticketsForOrder(orderId: number, emailOrKey?: string) {
-  const token = (emailOrKey || "").trim().toLowerCase();
+export function ticketsForOrder(orderId: number, orderKey?: string) {
+  const token = (orderKey || "").trim().toLowerCase();
   return load().tickets.filter((ticket) => {
     if (ticket.orderId !== orderId) return false;
+    // Internal callers omit the key to enumerate an already-authorized order;
+    // public lookup callers must supply the key and never match by email.
     if (!token) return true;
-    return (
-      ticket.orderKey.toLowerCase() === token ||
-      ticket.attendeeEmail.toLowerCase() === token ||
-      currentOwnerEmail(ticket) === token ||
-      purchaserOf(ticket) === token
-    );
-  });
-}
-
-export function ticketsByEmail(email: string) {
-  const token = email.trim().toLowerCase();
-  if (!token) return [];
-  return load().tickets.filter((ticket) => {
-    return (
-      ticket.attendeeEmail.toLowerCase() === token ||
-      currentOwnerEmail(ticket) === token ||
-      purchaserOf(ticket) === token
-    );
+    return ticket.orderKey.toLowerCase() === token;
   });
 }
 

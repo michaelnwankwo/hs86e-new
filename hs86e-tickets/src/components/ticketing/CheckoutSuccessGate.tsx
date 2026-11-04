@@ -54,12 +54,10 @@ type Verdict = "confirming" | "settled" | "cancelled" | "timeout";
 export function CheckoutSuccessGate({
   order,
   orderKey,
-  email,
   initialStatus = "",
 }: {
   order: string;
   orderKey?: string;
-  email?: string;
   initialStatus?: string;
 }) {
   const [verdict, setVerdict] = useState<Verdict>(() => {
@@ -140,10 +138,10 @@ export function CheckoutSuccessGate({
       <div className="mb-6 text-center">
         <h1 className="font-display text-3xl text-ink">You&apos;re on the list</h1>
         <p className="mt-2 max-w-md mx-auto text-sm text-ink-muted">
-          Your QR pass is below. Save it to this device — it also lives in Wallet.
+          Your QR pass is below. Save it to this device — it also lives in Account.
         </p>
       </div>
-      <IssuingWallet order={order} orderKey={orderKey} email={email} />
+      <IssuingWallet order={order} orderKey={orderKey} />
     </>
   );
 }

@@ -155,37 +155,14 @@ export function completeDemoOrder(orderId: number, gatewayEventId?: string) {
   return order;
 }
 
-export function findTicketsByOrder(orderId: number, emailOrKey: string) {
+export function findTicketsByOrder(orderId: number, orderKey: string) {
   const order = getDemoOrder(orderId);
-  if (!order) return null;
-  const token = emailOrKey.trim().toLowerCase();
-  const ok = order.orderKey.toLowerCase() === token || order.email.toLowerCase() === token;
-  if (!ok) return null;
+  if (!order || order.orderKey !== orderKey.trim()) return null;
   return order;
 }
 
 export function allDemoTickets(): IssuedTicket[] {
   return load().orders.flatMap((o) => o.tickets);
-}
-
-export function findTicketsByEmail(email: string) {
-  const token = email.trim().toLowerCase();
-  if (!token) return [];
-  return allDemoTickets().filter((ticket) => {
-    const assigned = (ticket.assignedEmail || ticket.attendeeEmail || "").toLowerCase();
-    const purchaser = (ticket.purchaserEmail || "").toLowerCase();
-    return (
-      assigned === token ||
-      purchaser === token ||
-      ticket.attendeeEmail.toLowerCase() === token
-    );
-  });
-}
-
-export function findTicketsByOrderId(orderId: number) {
-  const order = getDemoOrder(orderId);
-  if (!order || order.status !== "completed") return [];
-  return order.tickets;
 }
 
 export function findTicket(ticketId: string) {

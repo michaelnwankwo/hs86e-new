@@ -1,22 +1,9 @@
 import { NextResponse } from "next/server";
 import { hasWooCommerce, isDemoMode } from "@/lib/env";
-import {
-  findTicket,
-  findTicketsByEmail,
-  findTicketsByOrderId,
-} from "@/services/demo/store";
+import { findTicket, findTicketsByOrder } from "@/services/demo/store";
 import { ensureIssuedTickets } from "@/services/tickets/issue";
-import {
-  presentForViewer,
-  ticketById,
-  ticketsByEmail,
-  ticketsForOrder,
-  upsertIssuedTickets,
-} from "@/services/tickets/ledger";
-import {
-  getOrder,
-  listCompletedOrderIdsByEmail,
-} from "@/services/wp/woocommerce";
+import { presentForViewer, ticketById, ticketsForOrder, upsertIssuedTickets } from "@/services/tickets/ledger";
+import { getOrder } from "@/services/wp/woocommerce";
 import type { IssuedTicket } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -42,12 +29,6 @@ export async function GET(request: Request) {
 }
 
 async function handleGet(request: Request) {
-  // NOTE: the per-IP rate limit previously on this route was removed
-  // (product decision) because shared/CGNAT egress IPs made 429s hit
-  // legitimate buyers and freeze the wallet UI. Enumeration protection is
-  // instead provided by unguessable ticket IDs and holder-scoped QR
-  // redaction in presentForViewer.
-
   const { searchParams } = new URL(request.url);
   const ticketQuery = (
     searchParams.get("ticket") ||
@@ -57,69 +38,54 @@ async function handleGet(request: Request) {
   ).trim();
   const orderRaw = (searchParams.get("order") || searchParams.get("order_id") || "").trim();
   const orderId = Number(orderRaw);
-  const hasOrder = Boolean(orderRaw) && Number.isFinite(orderId) && orderId > 0;
-  const email = (searchParams.get("email") || "").trim().toLowerCase();
+  const hasOrder = Boolean(orderRaw) && Number.isSafeInteger(orderId) && orderId > 0;
   const key = (searchParams.get("key") || "").trim();
 
-  if (!ticketQuery && !hasOrder && !email && !key) {
+  if (Boolean(ticketQuery) === hasOrder) {
     return NextResponse.json(
-      { error: "Enter a ticket ID, order ID, or email." },
+      { error: "Enter either a Ticket ID or an Order ID." },
+      { status: 400 },
+    );
+  }
+  if (hasOrder && !key) {
+    return NextResponse.json(
+      { error: "An Order ID lookup requires the checkout order key." },
       { status: 400 },
     );
   }
 
   const matched: IssuedTicket[] = [];
-
   if (ticketQuery) {
     const hit = ticketById(ticketQuery) || findTicket(ticketQuery);
     if (hit) matched.push(hit);
   }
 
   if (hasOrder) {
-    matched.push(...ticketsForOrder(orderId));
-    matched.push(...findTicketsByOrderId(orderId));
+    // Local order data is only disclosed when the caller proves possession of
+    // the unguessable order key. The order number alone is not authorization.
+    matched.push(...ticketsForOrder(orderId, key));
     if (isDemoMode()) {
-      const demo = findTicketsByOrderId(orderId);
-      matched.push(...demo);
+      const demoOrder = findTicketsByOrder(orderId, key);
+      if (demoOrder?.status === "completed") matched.push(...demoOrder.tickets);
     } else if (hasWooCommerce()) {
       try {
-        // Cancellation guard: only SETTLED orders may mint passes. A pending
-        // (cancelled/failed) order must never surface ticket assets, even if
-        // the buyer opens the checkout-success URL directly.
         const order = await getOrder(orderId);
-        if (String(order.status || "").toLowerCase() === "completed") {
-          const issued = await ensureIssuedTickets(orderId);
-          matched.push(...issued);
+        if (
+          String(order.order_key || "") === key &&
+          String(order.status || "").toLowerCase() === "completed"
+        ) {
+          matched.push(...(await ensureIssuedTickets(orderId)));
         }
       } catch {
-        // ledger / demo already considered
+        // A keyed local ledger match, if any, remains available.
       }
     }
-  }
-
-  if (email) {
-    matched.push(...ticketsByEmail(email));
-    matched.push(...findTicketsByEmail(email));
-    if (!isDemoMode() && hasWooCommerce()) {
-      try {
-        const ids = await listCompletedOrderIdsByEmail(email);
-        for (const id of ids) {
-          matched.push(...(await ensureIssuedTickets(id)));
-        }
-      } catch {
-        // email ledger is enough
-      }
-    }
-  }
-
-  if (key && hasOrder) {
-    matched.push(...ticketsForOrder(orderId, key));
   }
 
   const tickets = uniqueTickets(matched);
   if (tickets.length > 0) {
     upsertIssuedTickets(tickets);
-    const presented = presentForViewer(tickets, email, { revealQr: Boolean(ticketQuery) && !email });
+    const presented = presentForViewer(tickets, undefined, { revealQr: true });
     return NextResponse.json({ status: "completed", tickets: presented, issuing: false });
   }
 

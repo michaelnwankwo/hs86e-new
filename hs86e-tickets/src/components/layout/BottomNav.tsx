@@ -2,18 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Gamepad2, Wallet } from "lucide-react";
+import { CalendarDays, Gamepad2, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * Mobile bottom tab bar — EVENTS → WALLET → GAMES.
+ * Mobile bottom tab bar — EVENTS → GAMES → ACCOUNT.
  * The public SCAN/DOOR tab is retired; staff reach the scanner through the
  * stealth triple-tap on the header logo.
  */
 const items = [
   { href: "/events", label: "Events", icon: CalendarDays },
-  { href: "/tickets", label: "Wallet", icon: Wallet },
   { href: "/games", label: "Games", icon: Gamepad2 },
+  { href: "/dashboard", label: "Account", icon: UserRound },
 ];
 
 export function BottomNav() {
@@ -29,7 +29,9 @@ export function BottomNav() {
           const active =
             item.href === "/events"
               ? pathname === "/" || pathname.startsWith("/events") || pathname.startsWith("/checkout")
-              : pathname.startsWith(item.href);
+              : item.href === "/dashboard"
+                ? pathname.startsWith("/dashboard") || pathname.startsWith("/account") || pathname.startsWith("/tickets") || pathname.startsWith("/wallet")
+                : pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
             <li key={item.href}>

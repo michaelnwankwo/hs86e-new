@@ -35,14 +35,12 @@ interface LookupResult {
 async function fetchTickets(
   order: string,
   key?: string,
-  email?: string,
   ticket?: string,
 ): Promise<LookupResult> {
   const params = new URLSearchParams();
   if (ticket) params.set("ticketId", ticket);
   if (order) params.set("order", order);
   if (key) params.set("key", key);
-  if (email) params.set("email", email);
 
   // Abort hung requests so the loading state ALWAYS settles (spinner can
   // never spin forever, even on a stalled proxy / serverless cold start).
@@ -98,15 +96,13 @@ async function fetchTickets(
 export function IssuingWallet({
   order,
   orderKey,
-  email,
   ticket,
 }: {
   order: string;
   orderKey?: string;
-  email?: string;
   ticket?: string;
 }) {
-  const enabled = Boolean(ticket || order || email || orderKey);
+  const enabled = Boolean(ticket || order);
   const [local, setLocal] = useState<IssuedTicket[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [remote, setRemote] = useState<IssuedTicket[]>([]);
@@ -121,16 +117,8 @@ export function IssuingWallet({
     try {
       const stored = readWallet().filter((row) => {
         if (ticket) return row.ticketId === ticket;
-        if (order && row.orderId === Number(order)) return true;
-        if (email) {
-          const token = String(email).trim().toLowerCase();
-          // Null-safe: redacted passes may be missing some fields, and old
-          // rows may hold non-string values — String() coerces both safely.
-          return (
-            String(row.attendeeEmail || "").toLowerCase() === token ||
-            String(row.assignedEmail || "").toLowerCase() === token ||
-            String(row.purchaserEmail || "").toLowerCase() === token
-          );
+        if (order) {
+          return Boolean(orderKey) && row.orderId === Number(order) && row.orderKey === orderKey;
         }
         return !enabled;
       });
@@ -141,7 +129,7 @@ export function IssuingWallet({
     } finally {
       setHydrated(true);
     }
-  }, [enabled, order, email, ticket]);
+  }, [enabled, order, orderKey, ticket]);
 
   // ---- explicit, always-settling lookup with bounded polling ----------------
   useEffect(() => {
@@ -162,7 +150,7 @@ export function IssuingWallet({
 
     // Only ORDER lookups race with the payment webhook (which mints passes a
     // beat after the browser redirects), so only they get a short poll. A
-    // ticket-ID or email lookup is definitive: a 404 means "no match" and we
+    // Ticket-ID or keyed-order lookup is definitive: a 404 means "no match" and we
     // render that empty state immediately — no endless spinner pulse.
     const maxPoll = order ? 4 : 0;
 
@@ -171,7 +159,7 @@ export function IssuingWallet({
       setLoading(true);
       let result: LookupResult;
       try {
-        result = await fetchTickets(order, orderKey, email, ticket);
+        result = await fetchTickets(order, orderKey, ticket);
       } catch (err) {
         result = {
           tickets: [],
@@ -220,7 +208,7 @@ export function IssuingWallet({
       window.clearTimeout(failsafe);
       if (timer) window.clearTimeout(timer);
     };
-  }, [enabled, order, orderKey, email, ticket, reloadToken]);
+  }, [enabled, order, orderKey, ticket, reloadToken]);
 
   const retry = useCallback(() => {
     setLookupError(null);
@@ -293,7 +281,7 @@ export function IssuingWallet({
       return (
         <div className="space-y-3">
           <StatusBanner tone="warn">
-            No pass matched. Use ticket ID, order ID, or the checkout email — any one is enough.
+            No pass matched. Check the Ticket ID, or use the Order ID with its checkout key.
           </StatusBanner>
           <Button variant="ghost" block onClick={retry}>
             Retry

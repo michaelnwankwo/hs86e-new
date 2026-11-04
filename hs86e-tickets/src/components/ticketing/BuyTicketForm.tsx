@@ -191,7 +191,7 @@ export function BuyTicketForm({ event }: { event: EventProduct }) {
             : `Pay ${formatMoney(total, event.currency)}`}
       </Button>
       <p className="text-center text-[11px] text-ink-dim">
-        Guest checkout. Email is your ticket identity. Payment is confirmed by webhook — never on redirect.
+        Guest checkout. Your Ticket ID and Order ID are sent to the email used at checkout. Payment is confirmed by webhook — never on redirect.
       </p>
     </form>
   );
