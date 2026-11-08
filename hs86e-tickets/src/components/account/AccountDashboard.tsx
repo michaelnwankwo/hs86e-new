@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatMoney } from "@/lib/utils";
 import { useCustomerAccount } from "@/components/account/CustomerAccountContext";
+import { AccountTicketStack } from "@/components/account/AccountTicketStack";
 
 export function AccountDashboard() {
   const account = useCustomerAccount();
@@ -26,6 +27,7 @@ export function AccountDashboard() {
         {wallet?.status === "ready" ? <p className="my-3 text-3xl font-bold text-ink">{formatMoney(wallet.balanceMinor / 100, wallet.currency)}</p> : <p className="my-3 text-sm text-ink-muted">Wallet setup is pending. No spendable balance is available yet.</p>}
         <div className="flex gap-3"><button disabled className="min-h-11 flex-1 rounded-xl bg-gold px-3 font-semibold text-[#111111] opacity-50">Deposit · Coming soon</button><button disabled className="min-h-11 flex-1 rounded-xl border border-gold/30 px-3 font-semibold text-gold opacity-50">Withdraw · Coming soon</button></div>
       </article>
+      <AccountTicketStack />
       {logoutWarning && <p role="alert" className="text-sm text-danger-bright">{logoutWarning}</p>}
       <button type="button" onClick={() => void signOut()} className="min-h-11 rounded-xl border border-gold/20 px-4 text-sm text-ink-muted">Sign out</button>
     </section>

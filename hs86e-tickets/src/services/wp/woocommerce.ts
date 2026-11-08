@@ -277,3 +277,37 @@ export async function addOrderMeta(orderId: number, key: string, value: string) 
     meta_data: [{ key, value }],
   });
 }
+
+export interface WcOrderSummary {
+  id: number;
+  status: string;
+  order_key?: string;
+  date_created?: string;
+  total?: string;
+  currency?: string;
+  billing?: { email?: string; first_name?: string; last_name?: string; phone?: string };
+  line_items?: { name: string; quantity: number }[];
+  meta_data?: { key: string; value: unknown }[];
+}
+
+/**
+ * Orders belonging to an authenticated WordPress/WooCommerce customer ID.
+ * Used by the signed-in account dashboard — never accepts an email address,
+ * so tickets cannot be enumerated for arbitrary buyers.
+ */
+export async function listOrdersForCustomer(
+  customerId: number,
+  perPage = 20,
+): Promise<WcOrderSummary[]> {
+  const wc = wcClient();
+  const { data } = await wc.get("/orders", {
+    params: {
+      customer: customerId,
+      status: "any",
+      per_page: Math.max(1, Math.min(perPage, 50)),
+      orderby: "date",
+      order: "desc",
+    },
+  });
+  return Array.isArray(data) ? (data as WcOrderSummary[]) : [];
+}
