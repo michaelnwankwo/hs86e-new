@@ -1,23 +1,59 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Loader2, Ticket } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { useCustomerAccount } from "@/components/account/CustomerAccountContext";
 import { AccountTicketStack } from "@/components/account/AccountTicketStack";
+import { GuestAccountPanel } from "@/components/account/GuestAccountPanel";
+
+function SigningOutSplash() {
+  return (
+    <main
+      role="status"
+      aria-live="polite"
+      className="flex min-h-[72dvh] w-full flex-col items-center justify-center gap-4 px-4"
+    >
+      <Loader2 className="h-8 w-8 animate-spin text-gold" aria-hidden />
+      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold">
+        Signing you out…
+      </p>
+      <Ticket className="h-5 w-5 text-gold/40" aria-hidden />
+    </main>
+  );
+}
 
 export function AccountDashboard() {
   const account = useCustomerAccount();
-  const router = useRouter();
   const [logoutWarning, setLogoutWarning] = useState("");
-  if (account.status !== "signed_in") return <div role={logoutWarning ? "alert" : undefined} className="px-4 py-12 text-center text-ink-muted">{logoutWarning || "Account session unavailable. Please sign in again."}</div>;
-  const { user, wallet } = account.session;
+  const [leaving, setLeaving] = useState(false);
 
   async function signOut() {
+    if (leaving) return;
     setLogoutWarning("");
-    try { await account.logout(); router.replace("/login"); }
-    catch (error) { setLogoutWarning(error instanceof Error ? error.message : "Server-side sign-out could not be confirmed"); }
+    setLeaving(true);
+    try {
+      // Best-effort revoke + cookie clear; never block the exit on it.
+      await account.logout();
+    } catch {
+      setLogoutWarning("Signed out on this device.");
+    } finally {
+      // Hard navigation: forces the server to re-check the cleared cookie and
+      // drops all client/PWA state — the user can never land on a frozen
+      // authenticated shell again.
+      window.location.assign("/events");
+    }
   }
+
+  // While the exit is in flight, show a deliberate splash — never a blank.
+  if (leaving) return <SigningOutSplash />;
+
+  // Signed-out visitor who stayed on the page: clean guest fallback.
+  if (account.status !== "signed_in") {
+    return <GuestAccountPanel notice={logoutWarning || undefined} />;
+  }
+
+  const { user, wallet } = account.session;
 
   return (
     <section className="mx-auto w-full max-w-2xl space-y-6 px-4 py-8 sm:px-6">
@@ -29,7 +65,7 @@ export function AccountDashboard() {
       </article>
       <AccountTicketStack />
       {logoutWarning && <p role="alert" className="text-sm text-danger-bright">{logoutWarning}</p>}
-      <button type="button" onClick={() => void signOut()} className="min-h-11 rounded-xl border border-gold/20 px-4 text-sm text-ink-muted">Sign out</button>
+      <button type="button" onClick={() => void signOut()} className="min-h-11 w-full rounded-xl border border-gold/20 px-4 text-sm text-ink-muted transition-colors hover:border-gold/40 hover:text-ink sm:w-auto">Sign out</button>
     </section>
   );
 }
