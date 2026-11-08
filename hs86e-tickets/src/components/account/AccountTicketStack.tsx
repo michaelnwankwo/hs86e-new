@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   CalendarDays,
   Check,
   ChevronDown,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Copy,
   MapPin,
   RefreshCw,
@@ -160,7 +162,7 @@ function AccountTicketCard({
       <div
         id={panelId}
         className={cn(
-          "grid transition-[grid-template-rows] duration-300 ease-out",
+          "grid transition-[grid-template-rows] duration-300 ease-in-out motion-reduce:transition-none",
           open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
         )}
       >
@@ -268,7 +270,10 @@ function AccountTicketCard({
 
 export function AccountTicketStack() {
   const [state, setState] = useState<LoadState>({ status: "loading", tickets: [] });
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openIds, setOpenIds] = useState<ReadonlySet<string>>(() => new Set());
+  // Smart initial expansion runs exactly once per mount and is never
+  // re-applied afterwards, so manual toggles always win.
+  const initializedRef = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async (mode: "initial" | "refresh" = "initial") => {
@@ -312,15 +317,36 @@ export function AccountTicketStack() {
     void load();
   }, [load]);
 
-  // Auto-expand the first pass so the QR flow is discoverable.
+  // Condition A (<3 passes): all QR cards start expanded.
+  // Condition B (>=3 passes): compact accordion overview, all collapsed.
   useEffect(() => {
-    if (state.status === "ready" && openId === null && state.tickets.length > 0) {
-      setOpenId(state.tickets[0].ticketId);
+    if (state.status === "ready" && !initializedRef.current) {
+      initializedRef.current = true;
+      if (state.tickets.length > 0 && state.tickets.length < 3) {
+        setOpenIds(new Set(state.tickets.map((ticket) => ticket.ticketId)));
+      }
     }
-  }, [state, openId]);
+  }, [state]);
+
+  const toggle = useCallback((ticketId: string) => {
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(ticketId)) next.delete(ticketId);
+      else next.add(ticketId);
+      return next;
+    });
+  }, []);
 
   const count = state.tickets.length;
   const tickets = useMemo(() => state.tickets, [state.tickets]);
+  const allOpen = tickets.length > 0 && tickets.every((ticket) => openIds.has(ticket.ticketId));
+  const toggleAll = useCallback(() => {
+    setOpenIds((prev) =>
+      tickets.length > 0 && tickets.every((ticket) => prev.has(ticket.ticketId))
+        ? new Set()
+        : new Set(tickets.map((ticket) => ticket.ticketId)),
+    );
+  }, [tickets]);
 
   return (
     <section
@@ -342,14 +368,36 @@ export function AccountTicketStack() {
             </span>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={() => void load("refresh")}
-          className="grid h-9 w-9 place-items-center rounded-full border border-gold/20 text-gold transition-colors hover:border-gold/40 hover:text-[#F5D68D]"
-          aria-label="Refresh tickets"
-        >
-          <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} aria-hidden />
-        </button>
+        <div className="flex items-center gap-2">
+          {tickets.length > 0 ? (
+            <button
+              type="button"
+              onClick={toggleAll}
+              aria-pressed={allOpen}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-gold/20 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-gold transition-colors hover:border-gold/40 hover:text-[#F5D68D]"
+            >
+              {allOpen ? (
+                <>
+                  <ChevronsDownUp className="h-3.5 w-3.5" aria-hidden />
+                  Collapse all
+                </>
+              ) : (
+                <>
+                  <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden />
+                  Expand all
+                </>
+              )}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void load("refresh")}
+            className="grid h-9 w-9 place-items-center rounded-full border border-gold/20 text-gold transition-colors hover:border-gold/40 hover:text-[#F5D68D]"
+            aria-label="Refresh tickets"
+          >
+            <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} aria-hidden />
+          </button>
+        </div>
       </div>
 
       {state.status === "loading" ? <TicketSkeleton /> : null}
@@ -389,10 +437,8 @@ export function AccountTicketStack() {
             <AccountTicketCard
               key={ticket.ticketId}
               ticket={ticket}
-              open={openId === ticket.ticketId}
-              onToggle={() =>
-                setOpenId((current) => (current === ticket.ticketId ? null : ticket.ticketId))
-              }
+              open={openIds.has(ticket.ticketId)}
+              onToggle={() => toggle(ticket.ticketId)}
               onTransferred={(updated) =>
                 setState((current) => ({
                   ...current,
