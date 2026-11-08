@@ -18,6 +18,45 @@ type ContextValue = State & {
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
+
+/**
+ * Purge every client-side session/account artifact. httpOnly cookies are
+ * cleared by the /api/account/logout route — this covers everything JS can
+ * reach. The device wallet and scan identity are PRESERVED on purpose.
+ */
+const STORAGE_PRESERVE = new Set([
+  "hs86e_saved_tickets",
+  "hs86e_wallet_v1",
+  "hs86e_active_ticket",
+  "hs86e_device_id",
+]);
+export const SIGNOUT_SIGNAL_KEY = "hs86e:signout-at";
+
+function purgeClientSessionArtifacts() {
+  if (typeof window === "undefined") return;
+  try {
+    const doomed: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (key && !STORAGE_PRESERVE.has(key)) doomed.push(key);
+    }
+    for (const key of doomed) window.localStorage.removeItem(key);
+    window.sessionStorage.clear();
+    window.localStorage.setItem(SIGNOUT_SIGNAL_KEY, String(Date.now()));
+    if ("caches" in window) {
+      caches.keys().then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => /(^|-)(pages|default|documents?)(-|$)/i.test(key) || key.includes("pages"))
+            .map((key) => caches.delete(key)),
+        ),
+      ).catch(() => undefined);
+    }
+  } catch {
+    // Storage unavailable (private mode); navigation still proceeds.
+  }
+}
+
 const Context = createContext<ContextValue | null>(null);
 
 async function parseResponse<T = unknown>(response: Response): Promise<T> {
@@ -52,6 +91,18 @@ export function CustomerAccountProvider({ children, initialSession }: { children
   }, []);
   useEffect(() => { if (!initialSession) void refresh(); }, [initialSession, refresh]);
 
+  // Another tab signed out: drop this tab's cached session immediately.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === SIGNOUT_SIGNAL_KEY) {
+        queryClient.clear();
+        setState({ status: "signed_out", session: null });
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [queryClient]);
+
   const login = useCallback(async (email: string, password: string) => {
     const session = await submit<CustomerAccountSession>("/api/account/login", { email, password });
     setState({ status: "signed_in", session });
@@ -65,7 +116,8 @@ export function CustomerAccountProvider({ children, initialSession }: { children
       const result = await submit<{ serverSessionRevoked?: boolean }>("/api/account/logout");
       if (!result.serverSessionRevoked) throw new Error("Signed out on this device, but the account service did not confirm session revocation. Retry when online.");
     } finally {
-      queryClient.removeQueries({ queryKey: ["customer-account"] });
+      queryClient.clear();
+      purgeClientSessionArtifacts();
       setState({ status: "signed_out", session: null });
     }
   }, [queryClient]);

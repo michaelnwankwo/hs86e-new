@@ -19,6 +19,14 @@ const serwist = new Serwist({
   navigationPreload: true,
   runtimeCaching: [
     {
+      // Authenticated shell: NEVER serve from Cache Storage.
+      matcher: ({ url }) =>
+        url.pathname === "/dashboard" ||
+        url.pathname === "/account" ||
+        url.pathname.startsWith("/account/"),
+      handler: new NetworkOnly(),
+    },
+    {
       // PWA widget payloads are PUBLIC read-only (event countdown / ticket
       // shell). Cache them network-first so home-screen widgets keep working
       // offline. Registered BEFORE the /api/ catch-all below so it wins.
