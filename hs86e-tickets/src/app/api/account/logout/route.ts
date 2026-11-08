@@ -38,6 +38,9 @@ const COOKIE_CLEAR = {
   maxAge: 0,
 };
 
+/** Expire every auth cookie name that can exist on THIS origin. WP-domain cookies die via the backend DELETE. */
+const LEGACY_COOKIE_NAMES = ["hs86e_customer_session", "hs86e_session", "wp_jwt_auth", "auth_token"];
+
 export async function POST(request: Request) {
   if (!signOutOriginOk(request)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -63,6 +66,6 @@ export async function POST(request: Request) {
     { ok: true, serverSessionRevoked: revoked },
     { headers: noStoreHeaders() },
   );
-  response.cookies.set(CUSTOMER_SESSION_COOKIE, "", COOKIE_CLEAR);
+  for (const name of LEGACY_COOKIE_NAMES) { response.cookies.set(name, "", COOKIE_CLEAR); }
   return response;
 }

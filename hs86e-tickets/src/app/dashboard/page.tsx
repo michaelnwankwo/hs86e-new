@@ -6,6 +6,7 @@ import { GuestAccountPanel } from "@/components/account/GuestAccountPanel";
 import { AccountProxyError, callWordPressCustomer, CUSTOMER_SESSION_COOKIE, parseAccountSession } from "@/lib/customer-account-proxy";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: "Account | Hot Since 86",

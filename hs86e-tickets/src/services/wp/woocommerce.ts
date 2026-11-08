@@ -311,3 +311,29 @@ export async function listOrdersForCustomer(
   });
   return Array.isArray(data) ? (data as WcOrderSummary[]) : [];
 }
+
+/**
+ * Guest-checkout orders whose billing email matches the given (session-verified)
+ * address. Uses WooCommerce `search` then hard-filters server-side.
+ */
+export async function listOrdersForBillingEmail(
+  email: string,
+  perPage = 25,
+): Promise<WcOrderSummary[]> {
+  const needle = email.trim().toLowerCase();
+  if (!needle) return [];
+  const wc = wcClient();
+  const { data } = await wc.get("/orders", {
+    params: {
+      search: needle,
+      status: "any",
+      per_page: Math.max(1, Math.min(perPage, 50)),
+      orderby: "date",
+      order: "desc",
+    },
+  });
+  const rows = Array.isArray(data) ? (data as WcOrderSummary[]) : [];
+  return rows.filter(
+    (order) => String(order.billing?.email || "").trim().toLowerCase() === needle,
+  );
+}

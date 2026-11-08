@@ -9,25 +9,18 @@ import {
 import { hasWooCommerce } from "@/lib/env";
 import { ensureIssuedTickets } from "@/services/tickets/issue";
 import { allLedgerTickets, presentForViewer, upsertIssuedTickets } from "@/services/tickets/ledger";
-import { listOrdersForCustomer } from "@/services/wp/woocommerce";
+import { listOrdersForBillingEmail, listOrdersForCustomer, type WcOrderSummary } from "@/services/wp/woocommerce";
 import type { IssuedTicket } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /**
  * Tickets for the *signed-in* account only.
- *
- * Sources (never an email supplied by the caller):
- *  1. WooCommerce orders whose `customer` equals the authenticated WP user ID
- *     from the hs86e_customer_session cookie — tickets are then issued/loaded
- *     per order (FooEvents -> ledger -> local mint, same as checkout).
- *  2. The local issued-ticket ledger, matched against the *session's own*
- *     identity (purchaser/assigned email on the verified session, or the
- *     order IDs above). This catches passes minted at webhook time for
- *     orders placed on this storefront.
- *
- * QR payload/token/TOTP seed are only ever returned for passes the viewer
- * currently holds (presentForViewer with the session identity).
+ *  1. WooCommerce orders with `customer` = authenticated WP user ID.
+ *  2. WooCommerce orders with `billing.email` = the session's own verified
+ *     email (guest checkout, Customer: Guest). Hard-filtered server-side.
+ *  3. Local issued-ticket ledger, matched against the session identity.
  */
 export async function GET() {
   const jar = await cookies();
@@ -61,37 +54,46 @@ export async function GET() {
     );
   }
 
-  // Session context only — both derived from the verified cookie session.
+  // Session context only.
   const viewerEmail = session.user.email.trim().toLowerCase();
   const userId = Number(session.user.id);
 
   const found = new Map<string, IssuedTicket>();
   const orderIds = new Set<number>();
 
-  // 1) WooCommerce orders for the authenticated customer ID.
-  if (hasWooCommerce() && Number.isSafeInteger(userId) && userId > 0) {
-    try {
-      const orders = await listOrdersForCustomer(userId, 25);
-      for (const order of orders) {
-        const status = String(order.status || "").toLowerCase();
-        if (status !== "completed" && status !== "processing") continue;
-        const id = Number(order.id);
-        if (!Number.isSafeInteger(id) || id <= 0) continue;
-        orderIds.add(id);
-        try {
-          for (const ticket of await ensureIssuedTickets(id)) {
-            if (ticket.ticketId) found.set(ticket.ticketId, ticket);
-          }
-        } catch (err) {
-          console.error(`[hs86e] /api/account/tickets: issuing for order ${id} failed:`, err);
+  async function collectFromOrders(orders: WcOrderSummary[]) {
+    for (const order of orders) {
+      const status = String(order.status || "").toLowerCase();
+      if (status !== "completed" && status !== "processing") continue;
+      const id = Number(order.id);
+      if (!Number.isSafeInteger(id) || id <= 0) continue;
+      if (orderIds.has(id)) continue;
+      orderIds.add(id);
+      try {
+        for (const ticket of await ensureIssuedTickets(id)) {
+          if (ticket.ticketId) found.set(ticket.ticketId, ticket);
         }
+      } catch (err) {
+        console.error(`[hs86e] /api/account/tickets: issuing for order ${id} failed:`, err);
       }
-    } catch (err) {
-      console.error("[hs86e] /api/account/tickets: WooCommerce order lookup failed:", err);
     }
   }
 
-  // 2) Local ledger — passes the session identity purchased or currently holds.
+  if (hasWooCommerce()) {
+    if (Number.isSafeInteger(userId) && userId > 0) {
+      try {
+        await collectFromOrders(await listOrdersForCustomer(userId, 25));
+      } catch (err) {
+        console.error("[hs86e] /api/account/tickets: WooCommerce customer lookup failed:", err);
+      }
+    }
+    try {
+      await collectFromOrders(await listOrdersForBillingEmail(viewerEmail, 25));
+    } catch (err) {
+      console.error("[hs86e] /api/account/tickets: WooCommerce billing-email lookup failed:", err);
+    }
+  }
+
   for (const ticket of allLedgerTickets()) {
     if (!ticket.ticketId) continue;
     const purchaser = String(ticket.purchaserEmail || ticket.attendeeEmail || "").trim().toLowerCase();
@@ -109,7 +111,6 @@ export async function GET() {
   });
   if (tickets.length > 0) upsertIssuedTickets(tickets);
 
-  // Redact for a signed-in viewer: orderKey stripped, QR only for current holders.
   const presented = presentForViewer(tickets, viewerEmail);
 
   return NextResponse.json(
