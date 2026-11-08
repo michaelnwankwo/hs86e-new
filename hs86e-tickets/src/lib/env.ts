@@ -72,10 +72,18 @@ const schema = z.object({
   /** WooCommerce product category slug that holds event tickets. Empty = auto-detect FooEvents products. */
   WC_CATEGORY_SLUG: optionalString,
   /** When true, list every published product if no event-tickets category / FooEvents meta is found. */
-  WC_INCLUDE_ALL_PRODUCTS: z
+    WC_INCLUDE_ALL_PRODUCTS: z
     .string()
     .optional()
     .transform((v) => v === "true" || v === "1"),
+
+  /** Wallet subsystem. Feature-flagged and fail-closed: nothing moves money until explicitly enabled. */
+  WALLET_ENABLED: z.string().optional().transform((v) => v === "true" || v === "1"),
+  WALLET_FREEZE: z.string().optional().transform((v) => v === "true" || v === "1"),
+  SUPABASE_URL: optionalString,
+  SUPABASE_SERVICE_ROLE_KEY: optionalString,
+  /** When false, guest orders are NOT auto-matched by billing email (claim-flow required instead). */
+  TICKET_GUEST_EMAIL_MATCH: z.string().optional().transform((v) => v !== "false" && v !== "0"),
 });
 
 export type AppEnv = z.infer<typeof schema>;
@@ -109,6 +117,11 @@ export function getEnv(): AppEnv {
     RESEND_FROM: process.env.RESEND_FROM,
     WC_CATEGORY_SLUG: process.env.WC_CATEGORY_SLUG,
     WC_INCLUDE_ALL_PRODUCTS: process.env.WC_INCLUDE_ALL_PRODUCTS,
+    WALLET_ENABLED: process.env.WALLET_ENABLED,
+    WALLET_FREEZE: process.env.WALLET_FREEZE,
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    TICKET_GUEST_EMAIL_MATCH: process.env.TICKET_GUEST_EMAIL_MATCH,
   });
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
@@ -203,4 +216,25 @@ export function hasScanSecret() {
 
 export function appUrl() {
   return getEnvSafe().NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+}
+
+/** True when a usable Supabase service client can be created (server-only). */
+export function hasSupabase() {
+  const env = getEnvSafe();
+  return Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+/** Wallet master switch. Default false - money routes fail closed. */
+export function walletEnabled() {
+  return getEnvSafe().WALLET_ENABLED === true;
+}
+
+/** Read-only freeze: wallet routes answer but no money moves. */
+export function walletFrozen() {
+  return getEnvSafe().WALLET_FREEZE === true;
+}
+
+/** When false, guest orders are not auto-matched to accounts by email. */
+export function guestEmailMatchEnabled() {
+  return getEnvSafe().TICKET_GUEST_EMAIL_MATCH !== false;
 }

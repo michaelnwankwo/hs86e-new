@@ -6,7 +6,7 @@ import {
   noStoreHeaders,
   parseAccountSession,
 } from "@/lib/customer-account-proxy";
-import { hasWooCommerce } from "@/lib/env";
+import { guestEmailMatchEnabled, hasWooCommerce } from "@/lib/env";
 import { ensureIssuedTickets } from "@/services/tickets/issue";
 import { allLedgerTickets, presentForViewer, upsertIssuedTickets } from "@/services/tickets/ledger";
 import { listOrdersForBillingEmail, listOrdersForCustomer, type WcOrderSummary } from "@/services/wp/woocommerce";
@@ -87,10 +87,15 @@ export async function GET() {
         console.error("[hs86e] /api/account/tickets: WooCommerce customer lookup failed:", err);
       }
     }
-    try {
-      await collectFromOrders(await listOrdersForBillingEmail(viewerEmail, 25));
-    } catch (err) {
-      console.error("[hs86e] /api/account/tickets: WooCommerce billing-email lookup failed:", err);
+    // Guest-checkout orders with the session's own billing email.
+    // INTERIM: soft identity link; emails are not verified today. Set TICKET_GUEST_EMAIL_MATCH=false
+    // to disable until the WP plugin verifies ownership or a signed claim-flow ships.
+    if (guestEmailMatchEnabled()) {
+      try {
+        await collectFromOrders(await listOrdersForBillingEmail(viewerEmail, 25));
+      } catch (err) {
+        console.error("[hs86e] /api/account/tickets: WooCommerce billing-email lookup failed:", err);
+      }
     }
   }
 
@@ -99,7 +104,8 @@ export async function GET() {
     const purchaser = String(ticket.purchaserEmail || ticket.attendeeEmail || "").trim().toLowerCase();
     const assigned = String(ticket.assignedEmail || ticket.attendeeEmail || "").trim().toLowerCase();
     const ownOrder = orderIds.has(Number(ticket.orderId));
-    if (ownOrder || purchaser === viewerEmail || assigned === viewerEmail) {
+    const emailMatchOk = guestEmailMatchEnabled();
+    if (ownOrder || (emailMatchOk && (purchaser === viewerEmail || assigned === viewerEmail))) {
       if (!found.has(ticket.ticketId)) found.set(ticket.ticketId, ticket);
     }
   }
