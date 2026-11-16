@@ -15,8 +15,8 @@ import { usePathname } from "next/navigation";
  *  • transform: scaleX (origin-left) — zero layout thrash, 60fps throughout.
  *  • aria-hidden & pointer-events-none — never blocks input or a11y tree.
  */
-const CREEP_MS = 1800;
-const MAX_CREEP = 0.85;
+const CREEP_MS = 2100;
+const MAX_CREEP = 0.9;
 const FADE_MS = 200;
 
 export function GoldTopLoader() {
@@ -58,26 +58,23 @@ export function GoldTopLoader() {
       cancelAnimationFrame(raf.current);
       raf.current = null;
     }
-    setScaleX(1); // instant 100%
-    const bar = barRef.current;
-    if (bar) {
-      // Force one committed frame at 100% before fading.
-      requestAnimationFrame(() => {
-        bar.style.opacity = "0";
-      });
-    }
+    setScaleX(1); // instantly complete to 100%
+    // Hold for 100ms so the eye registers completion, then fade over 200ms.
+    setTimeout(() => {
+      if (barRef.current) barRef.current.style.opacity = "0";
+    }, 100);
     fadeTimer.current = setTimeout(() => {
       if (barRef.current) {
         barRef.current.style.transition = "none";
         setScaleX(0);
+        void barRef.current.offsetWidth; // force reflow so the reset is committed
         barRef.current.style.opacity = "1";
-        // Restore the transition on the next frame.
         requestAnimationFrame(() => {
           if (barRef.current) barRef.current.style.transition = "opacity 200ms ease";
         });
       }
       fadeTimer.current = null;
-    }, FADE_MS);
+    }, 100 + FADE_MS);
   };
 
   // Start the creep for same-origin internal navigations (and back/forward).
@@ -123,7 +120,7 @@ export function GoldTopLoader() {
   );
 
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 z-50 h-[2.5px] overflow-hidden">
+    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 z-50 h-[3px] overflow-hidden">
       <div
         ref={barRef}
         className="relative h-full origin-left bg-[#D4AF37]"
@@ -131,7 +128,7 @@ export function GoldTopLoader() {
           transform: "scaleX(0)",
           opacity: 1,
           transition: "opacity 200ms ease",
-          boxShadow: "0 0 8px rgba(212,175,55,0.6), 0 0 20px rgba(212,175,55,0.32)",
+          boxShadow: "0 0 10px rgba(212,175,55,0.7), 0 0 22px rgba(212,175,55,0.4)",
         }}
       >
         <span className="gold-top-stripe absolute inset-y-0 right-0 w-16 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.9),transparent)]" />

@@ -1,5 +1,7 @@
-// Route transitions stream immediately; the GoldTopLoader in AppHeader
-// is the single, non-blocking progress indicator. No full-screen overlay.
+import { RouteSkeleton } from "@/components/ui/RouteSkeleton";
+
+// Non-blocking placeholder for route transitions; the gold GoldTopLoader in the
+// AppHeader is the progress indicator. No full-screen blocker.
 export default function Loading() {
-  return null;
+  return <RouteSkeleton variant="list" />;
 }
