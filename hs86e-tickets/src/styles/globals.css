@@ -6,7 +6,7 @@
   --surface: #0b0e14;
   --surface-raised: #161b22;
   --ink: #f8fafc;
-  --gold: #dfb260;
+  --gold: #d4af37;
   --gold-metallic: #d4af37;
   --champagne: #f5d68d;
   --emerald: #043927;
@@ -30,15 +30,15 @@ body {
 body {
   margin: 0;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(223, 178, 96, 0.15), transparent 55%),
-    radial-gradient(circle at 8% 92%, rgba(223, 178, 96, 0.15), transparent 42%),
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(212, 175, 55,  0.15), transparent 55%),
+    radial-gradient(circle at 8% 92%, rgba(212, 175, 55,  0.15), transparent 42%),
     #0b0e14;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
 ::selection {
-  background: rgba(223, 178, 96, 0.35);
+  background: rgba(212, 175, 55,  0.35);
   color: #0b0e14;
 }
 
@@ -59,7 +59,7 @@ button {
 }
 
 .gold-border {
-  box-shadow: 0 0 0 1px rgba(223, 178, 96, 0.2);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55,  0.2);
 }
 
 .logo-glow {
@@ -70,13 +70,13 @@ button {
   content: "";
   position: absolute;
   inset: -18%;
-  background: radial-gradient(circle, rgba(223, 178, 96, 0.15), transparent 68%);
+  background: radial-gradient(circle, rgba(212, 175, 55,  0.15), transparent 68%);
   pointer-events: none;
   z-index: 0;
 }
 
 .safe-bottom {
-  padding-bottom: calc(5.6rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(7.5rem + env(safe-area-inset-bottom));
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -161,7 +161,7 @@ button {
   background: linear-gradient(
     90deg,
     rgba(22, 27, 34, 1) 0%,
-    rgba(223, 178, 96, 0.12) 50%,
+    rgba(212, 175, 55,  0.12) 50%,
     rgba(22, 27, 34, 1) 100%
   );
   background-size: 200% 100%;
@@ -205,7 +205,7 @@ button {
 .eq-bar {
   height: 20px;
   animation: eq-bar 1s ease-in-out infinite;
-  box-shadow: 0 0 10px rgba(223, 178, 96, 0.35);
+  box-shadow: 0 0 10px rgba(212, 175, 55,  0.35);
 }
 
 nextjs-portal,
@@ -246,7 +246,7 @@ nextjs-portal,
     90deg,
     transparent 0%,
     #d4af37 30%,
-    #dfb260 50%,
+    #d4af37 50%,
     #c5a059 70%,
     transparent 100%
   );

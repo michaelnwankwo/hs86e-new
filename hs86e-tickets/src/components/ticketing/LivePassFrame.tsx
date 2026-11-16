@@ -177,15 +177,15 @@ export function LivePassFrame({
             <p className="mt-2 text-sm font-semibold text-[#F8FAFC]">
               {ticket.eventName}
             </p>
-            <p className="mt-1 text-xs text-[#DFB260]">Tier · {ticket.tier}</p>
-            <p className="mt-1 text-xs text-[#DFB260]/80">
+            <p className="mt-1 text-xs text-[#D4AF37]">Tier · {ticket.tier}</p>
+            <p className="mt-1 text-xs text-[#D4AF37]/80">
               Pass {ticket.passIndex ?? 1} of {ticket.passTotal ?? 1} · Order #
               {ticket.orderId}
             </p>
             <p className="mt-2 break-all font-mono text-[11px] tracking-[0.12em] text-[#F5D68D]">
               {ticket.ticketId}
             </p>
-            <p className="mt-3 text-[10px] text-[#DFB260]/60">
+            <p className="mt-3 text-[10px] text-[#D4AF37]/60">
               Tap to return to the live QR.
             </p>
           </div>
@@ -200,7 +200,7 @@ export function LivePassFrame({
           concealed ? "opacity-100" : "opacity-0",
         )}
       >
-        <p className="px-4 text-center text-[11px] uppercase tracking-[0.18em] text-[#DFB260]">
+        <p className="px-4 text-center text-[11px] uppercase tracking-[0.18em] text-[#D4AF37]">
           Pass hidden — return to the app to reveal
         </p>
       </div>

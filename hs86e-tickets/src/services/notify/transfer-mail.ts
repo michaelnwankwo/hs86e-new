@@ -35,8 +35,8 @@ export async function sendTransferEmail(input: {
 <body style="margin:0;background:#0B0E14;color:#F8FAFC;font-family:Georgia,serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0B0E14;padding:32px 16px;">
     <tr><td align="center">
-      <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="background:#161B22;border:1px solid rgba(223,178,96,0.25);border-radius:20px;padding:28px;">
-        <tr><td style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#DFB260;">Hot Since 86 Entertainment</td></tr>
+      <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="background:#161B22;border:1px solid rgba(212, 175, 55,0.25);border-radius:20px;padding:28px;">
+        <tr><td style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#D4AF37;">Hot Since 86 Entertainment</td></tr>
         <tr><td style="padding-top:12px;font-size:26px;color:#F8FAFC;">You're on the list</td></tr>
         <tr><td style="padding-top:10px;color:#F5D68D;font-size:16px;">${escapeHtml(input.ticket.eventName)}</td></tr>
         <tr><td style="padding-top:16px;color:#94A3B8;font-size:14px;line-height:1.6;">

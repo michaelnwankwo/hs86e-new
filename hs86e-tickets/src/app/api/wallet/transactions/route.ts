@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { walletEnabled } from "@/lib/env";
 import { requireAccountSession, sessionUserId } from "@/lib/account-session";
-import { listLedger, type LedgerRow } from "@/lib/wallet/store";
+import { listLedger, type LedgerRow, type LedgerStatus } from "@/lib/wallet/store";
 
 export const dynamic = "force-dynamic";
 
@@ -40,12 +40,17 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const format = url.searchParams.get("format");
   const before = url.searchParams.get("before");
-  const beforeIso = before && /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(before) ? before : undefined;
+  const beforeIso = before && /^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:?\d{2})$/.test(before) ? before : undefined;
   const limitRaw = Number(url.searchParams.get("limit") ?? "50");
   const limit = Number.isInteger(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, MAX_LIMIT) : 50;
+  const STATUS_ALLOWLIST = new Set(["completed", "pending", "failed", "reversed", "disputed"]);
+  const statusParam = url.searchParams.get("status");
+  const statuses = statusParam
+    ? (statusParam.split(",").map((v) => v.trim().toLowerCase()).filter((v) => STATUS_ALLOWLIST.has(v)) as LedgerStatus[])
+    : undefined;
 
   try {
-    const rows = await listLedger(id, format === "csv" ? MAX_LIMIT : limit, beforeIso);
+    const rows = await listLedger(id, format === "csv" ? MAX_LIMIT : limit, beforeIso, statuses);
     if (format === "csv") {
       return new NextResponse(toCsv(rows), {
         status: 200,

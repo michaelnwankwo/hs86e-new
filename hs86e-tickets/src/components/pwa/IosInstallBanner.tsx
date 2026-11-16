@@ -9,17 +9,17 @@ export function IosInstallBanner() {
 
   return (
     <div
-      className="fixed inset-x-4 z-50 rounded-2xl border border-[#DFB260]/40 bg-[#121821]/95 p-4 text-[#F8FAFC] shadow-lg shadow-[#DFB260]/10 backdrop-blur-md"
+      className="fixed inset-x-4 z-50 rounded-2xl border border-[#D4AF37]/40 bg-[#121821]/95 p-4 text-[#F8FAFC] shadow-lg shadow-[#D4AF37]/10 backdrop-blur-md"
       style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom))" }}
       role="dialog"
       aria-label="Add HS86E to Home Screen"
     >
       <div className="flex items-start gap-3">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#DFB260]/40 text-[#DFB260]">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#D4AF37]/40 text-[#D4AF37]">
           <Share className="h-5 w-5" aria-hidden />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#DFB260]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#D4AF37]">
             Install HS86E
           </p>
           <p className="mt-1 text-sm leading-relaxed text-[#F8FAFC]/90">
@@ -28,7 +28,7 @@ export function IosInstallBanner() {
             scanner like an app.
           </p>
         </div>
-        <button type="button" onClick={dismissIosHint} className="text-[#DFB260]" aria-label="Dismiss">
+        <button type="button" onClick={dismissIosHint} className="text-[#D4AF37]" aria-label="Dismiss">
           <X className="h-4 w-4" />
         </button>
       </div>

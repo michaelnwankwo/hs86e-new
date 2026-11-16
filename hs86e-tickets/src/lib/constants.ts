@@ -15,11 +15,11 @@ export const THEME = {
   surfaceRaised: "#161B22",
   ink: "#F8FAFC",
   primary: "#043927",
-  secondary: "#DFB260",
+  secondary: "#D4AF37",
   metallic: "#D4AF37",
   champagne: "#F5D68D",
-  goldBorder: "rgba(223, 178, 96, 0.20)",
-  goldGlow: "rgba(223, 178, 96, 0.15)",
+  goldBorder: "rgba(212, 175, 55, 0.20)",
+  goldGlow: "rgba(212, 175, 55, 0.15)",
 } as const;
 
 export const SCAN_QUEUE_KEY = "hs86e_scan_queue_v1";

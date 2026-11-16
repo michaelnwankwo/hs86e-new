@@ -28,7 +28,7 @@ export function Logo({
       <img
         src={LOGO_PATH}
         alt={alt}
-        className={cn("relative z-10 object-contain drop-shadow-[0_0_28px_rgba(223,178,96,0.28)]", sizes[size])}
+        className={cn("relative z-10 object-contain drop-shadow-[0_0_28px_rgba(212, 175, 55,0.28)]", sizes[size])}
         {...(priority ? { fetchPriority: "high" as const } : {})}
       />
     </span>

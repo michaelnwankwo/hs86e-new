@@ -13,10 +13,10 @@ export function PWAInstallButton() {
       style={{ marginBottom: "env(safe-area-inset-bottom)" }}
     >
       {hint ? (
-        <div className="max-w-[240px] rounded-xl border border-[#DFB260]/40 bg-[#121821]/95 px-3 py-2 text-[11px] leading-relaxed text-[#F8FAFC] shadow-lg backdrop-blur-md">
+        <div className="max-w-[240px] rounded-xl border border-[#D4AF37]/40 bg-[#121821]/95 px-3 py-2 text-[11px] leading-relaxed text-[#F8FAFC] shadow-lg backdrop-blur-md">
           <div className="flex items-start gap-2">
             <p className="flex-1">{hint}</p>
-            <button type="button" onClick={dismissHint} className="text-[#DFB260]" aria-label="Dismiss">
+            <button type="button" onClick={dismissHint} className="text-[#D4AF37]" aria-label="Dismiss">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -25,11 +25,11 @@ export function PWAInstallButton() {
       <button
         type="button"
         onClick={() => void install()}
-        className="inline-flex min-h-12 items-center gap-2 rounded-full border border-[#DFB260]/40 bg-[#121821]/90 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#F8FAFC] shadow-lg shadow-[#DFB260]/10 backdrop-blur-md transition hover:border-[#F5D68D] hover:text-[#F5D68D]"
+        className="inline-flex min-h-12 items-center gap-2 rounded-full border border-[#D4AF37]/40 bg-[#121821]/90 px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#F8FAFC] shadow-lg shadow-[#D4AF37]/10 backdrop-blur-md transition hover:border-[#F5D68D] hover:text-[#F5D68D]"
         aria-label="Install App"
       >
-        <Download className="h-4 w-4 text-[#DFB260]" aria-hidden />
-        <span className="text-[#DFB260]">{canPrompt ? "Install App" : "Install App"}</span>
+        <Download className="h-4 w-4 text-[#D4AF37]" aria-hidden />
+        <span className="text-[#D4AF37]">{canPrompt ? "Install App" : "Install App"}</span>
       </button>
     </div>
   );

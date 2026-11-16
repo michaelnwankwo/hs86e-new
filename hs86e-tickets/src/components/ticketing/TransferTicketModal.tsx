@@ -153,7 +153,7 @@ export function TransferTicketModal({
       }}
     >
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-2xl border border-[#DFB260]/25 bg-[#161B22] p-5 shadow-gold"
+        className="relative w-full max-w-md overflow-hidden rounded-2xl border border-[#D4AF37]/25 bg-[#161B22] p-5 shadow-gold"
         onClick={(e) => e.stopPropagation()}
       >
         {busy ? (
@@ -168,7 +168,7 @@ export function TransferTicketModal({
 
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#DFB260]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#D4AF37]">
               {passLabel} · {ticket.ticketId}
             </p>
             <h2 id={titleId} className="mt-1 font-display text-2xl text-[#F8FAFC]">
@@ -178,7 +178,7 @@ export function TransferTicketModal({
           <button
             type="button"
             onClick={onClose}
-            className="grid h-10 w-10 place-items-center rounded-full border border-[#DFB260]/20 text-[#DFB260]"
+            className="grid h-10 w-10 place-items-center rounded-full border border-[#D4AF37]/20 text-[#D4AF37]"
             aria-label="Close"
             disabled={busy}
           >
@@ -194,7 +194,7 @@ export function TransferTicketModal({
               is void.
             </p>
             {done.emailSent ? (
-              <p className="text-sm text-[#DFB260]/80">They also got an email with this link.</p>
+              <p className="text-sm text-[#D4AF37]/80">They also got an email with this link.</p>
             ) : (
               <>
                 <StatusBanner tone="warn">
@@ -204,7 +204,7 @@ export function TransferTicketModal({
                 <div className="flex items-stretch gap-2">
                   <button
                     type="button"
-                    className="min-w-0 flex-1 truncate rounded-xl border border-[#DFB260]/20 bg-[#0B0E14] px-3 py-3 text-left font-mono text-xs text-[#F5D68D]"
+                    className="min-w-0 flex-1 truncate rounded-xl border border-[#D4AF37]/20 bg-[#0B0E14] px-3 py-3 text-left font-mono text-xs text-[#F5D68D]"
                     onClick={() => void copyClaim(done.claimUrl)}
                   >
                     {done.claimUrl}
@@ -212,7 +212,7 @@ export function TransferTicketModal({
                   <button
                     type="button"
                     onClick={() => void copyClaim(done.claimUrl)}
-                    className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[#DFB260]/20 text-[#DFB260]"
+                    className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[#D4AF37]/20 text-[#D4AF37]"
                     aria-label="Copy claim link"
                   >
                     {linkCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -226,11 +226,11 @@ export function TransferTicketModal({
           </div>
         ) : (
           <form className="space-y-3" onSubmit={(e) => void submit(e)} noValidate>
-            <p className="rounded-xl border border-[#DFB260]/25 bg-[#0B0E14] px-3 py-3 text-sm leading-relaxed text-[#F8FAFC]/85">
+            <p className="rounded-xl border border-[#D4AF37]/25 bg-[#0B0E14] px-3 py-3 text-sm leading-relaxed text-[#F8FAFC]/85">
               {TRANSFER_CONFIRM_COPY}
             </p>
             {fromEmail ? (
-              <p className="text-xs text-[#DFB260]/70">
+              <p className="text-xs text-[#D4AF37]/70">
                 From <span className="font-mono text-[#F5D68D]">{fromEmail}</span>
               </p>
             ) : (
@@ -239,7 +239,7 @@ export function TransferTicketModal({
               </StatusBanner>
             )}
             <label className="block">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#DFB260]">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#D4AF37]">
                 Recipient email
               </span>
               <input
@@ -261,21 +261,21 @@ export function TransferTicketModal({
                     ? "border-danger-bright/70"
                     : emailValid
                       ? "border-[#0E7A52]"
-                      : "border-[#DFB260]/20"
+                      : "border-[#D4AF37]/20"
                 }`}
               />
               {emailHint ? <p className="mt-1.5 text-xs text-danger-bright">{emailHint}</p> : null}
             </label>
             <label className="block">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#DFB260]">
-                Guest name <span className="text-[#DFB260]/50">(optional)</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#D4AF37]">
+                Guest name <span className="text-[#D4AF37]/50">(optional)</span>
               </span>
               <input
                 value={toName}
                 onChange={(e) => setToName(e.target.value)}
                 placeholder="Name on the door list"
                 disabled={busy}
-                className="mt-2 w-full rounded-xl border border-[#DFB260]/20 bg-[#0B0E14] px-3 py-3 text-[#F8FAFC]"
+                className="mt-2 w-full rounded-xl border border-[#D4AF37]/20 bg-[#0B0E14] px-3 py-3 text-[#F8FAFC]"
               />
             </label>
             <label htmlFor={confirmId} className="flex items-start gap-3 rounded-xl bg-[#0B0E14] px-3 py-3">

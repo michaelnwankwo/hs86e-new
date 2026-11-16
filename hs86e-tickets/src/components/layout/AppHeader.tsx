@@ -26,21 +26,18 @@ type NavItem = {
  * Global header navigation.
  *
  * The public DOOR/SCAN tab is retired — staff reach the scanner through the
- * stealth triple-tap on the logo. Tab order: EVENTS → GAMES → ACCOUNT.
+ * stealth triple-tap on the logo. Tab order: GAMES → CREATE → EVENTS → WALLET.
+ * Account lives in the bottom navigation, not the header bar.
  */
 const NAV_ITEMS: NavItem[] = [
+  { label: "Games", href: "/games", isActive: (p) => p.startsWith("/games") },
+  { label: "Create", href: "/create", isActive: (p) => p.startsWith("/create") },
   {
     label: "Events",
     href: "/events",
-    isActive: (p) => p.startsWith("/events") || p.startsWith("/checkout"),
+    isActive: (p) => p === "/" || p.startsWith("/events") || p.startsWith("/checkout"),
   },
-  { label: "Games", href: "/games", isActive: (p) => p.startsWith("/games") },
-  {
-    label: "Account",
-    href: "/dashboard",
-    isActive: (p) =>
-      p.startsWith("/dashboard") || p.startsWith("/account") || p.startsWith("/tickets") || p.startsWith("/wallet"),
-  },
+  { label: "Wallet", href: "/wallet", isActive: (p) => p.startsWith("/wallet") },
 ];
 
 export function AppHeader() {
@@ -79,7 +76,7 @@ export function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#DFB260]/30">
+    <header className="sticky top-0 z-40 border-b border-[#D4AF37]/30">
       <div className="relative overflow-hidden bg-[#0A0D14]/90 backdrop-blur-xl">
         {/*
          * Asset 2 — darkened light-burst backdrop.
@@ -123,7 +120,7 @@ export function AppHeader() {
               <img
                 src={LOGO_SRC}
                 alt="Hot Since 86 Entertainment"
-                className="relative z-[1] h-[43px] w-auto object-contain drop-shadow-[0_2px_8px_rgba(223,178,96,0.2)] md:h-12 lg:h-16 xl:h-20"
+                className="relative z-[1] h-[43px] w-auto object-contain drop-shadow-[0_2px_8px_rgba(212, 175, 55, 0.2)] md:h-12 lg:h-16 xl:h-20"
               />
               {/* Metallic glitter sheen — masked to the gold logo pixels */}
               <span aria-hidden="true" className="logo-sheen" />
@@ -131,7 +128,7 @@ export function AppHeader() {
           </Link>
 
           <nav aria-label="HS86E primary">
-            <ul className="flex items-center gap-4 md:gap-6">
+            <ul className="flex items-center gap-3 sm:gap-4 md:gap-6">
               {NAV_ITEMS.map((item) => {
                 const active = item.isActive(pathname);
                 return (
@@ -142,10 +139,10 @@ export function AppHeader() {
                       className={cn(
                         // Uppercase, semibold, tracking-wider — small on mobile,
                         // scaled up at md:/lg: for crisp desktop/tablet legibility.
-                        "flex items-center whitespace-nowrap border-b-2 px-0.5 pb-1 text-xs font-semibold uppercase tracking-wider transition-colors duration-200 md:text-sm lg:text-base",
+                        "flex items-center whitespace-nowrap border-b-2 px-0.5 pb-1 text-[10px] font-semibold uppercase tracking-wider transition-colors duration-200 sm:text-xs md:text-sm lg:text-base",
                         active
                           ? // Active — ONLY gold text + clean thin gold underline (no box, no glow)
-                            "border-[#DFB260] text-[#DFB260]"
+                            "border-[#D4AF37] text-[#D4AF37]"
                           : // Inactive — simple muted text, no background (transparent border keeps alignment stable)
                             "border-transparent text-slate-300 hover:text-[#F5D68D]",
                       )}

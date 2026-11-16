@@ -42,7 +42,7 @@ export default function QuickTicketPassWidget() {
         textAlign: "center",
       }}
     >
-      <p style={{ color: "#DFB260", fontSize: 11, letterSpacing: "0.22em", textTransform: "uppercase", margin: 0 }}>
+      <p style={{ color: "#D4AF37", fontSize: 11, letterSpacing: "0.22em", textTransform: "uppercase", margin: 0 }}>
         Hot Since 86 Entertainment
       </p>
       {ticket?.qrPayload ? (

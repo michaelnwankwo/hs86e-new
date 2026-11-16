@@ -39,7 +39,7 @@ export function AppHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#DFB260]/30">
+    <header className="sticky top-0 z-40 border-b border-[#D4AF37]/30">
       <div className="relative overflow-hidden bg-[#0A0D14]/90 backdrop-blur-xl">
         {/*
          * Asset 2 — darkened light-burst backdrop.
@@ -75,7 +75,7 @@ export function AppHeader() {
             <img
               src={LOGO_SRC}
               alt="Hot Since 86 Entertainment"
-              className="h-[43px] w-auto object-contain drop-shadow-[0_2px_8px_rgba(223,178,96,0.2)] md:h-12 lg:h-16 xl:h-20"
+              className="h-[43px] w-auto object-contain drop-shadow-[0_2px_8px_rgba(212, 175, 55,0.2)] md:h-12 lg:h-16 xl:h-20"
             />
           </Link>
 
@@ -94,7 +94,7 @@ export function AppHeader() {
                         "flex items-center whitespace-nowrap border-b-2 px-0.5 pb-1 text-xs font-semibold uppercase tracking-wider transition-colors duration-200 md:text-sm lg:text-base",
                         active
                           ? // Active — ONLY gold text + clean thin gold underline (no box, no glow)
-                            "border-[#DFB260] text-[#DFB260]"
+                            "border-[#D4AF37] text-[#D4AF37]"
                           : // Inactive — simple muted text, no background (transparent border keeps alignment stable)
                             "border-transparent text-slate-300 hover:text-[#F5D68D]",
                       )}

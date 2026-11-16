@@ -24,12 +24,12 @@ export function LoadingOverlay({ isLoading }: { isLoading: boolean }) {
       aria-busy="true"
     >
       <div className="relative flex flex-col items-center">
-        <span className="pointer-events-none absolute h-32 w-32 rounded-full bg-[#DFB260]/15 blur-xl" />
+        <span className="pointer-events-none absolute h-32 w-32 rounded-full bg-[#D4AF37]/15 blur-xl" />
         <div className="relative flex h-[60px] items-end gap-2">
           {DELAYS.map((delay) => (
             <span
               key={delay}
-              className="eq-bar w-1.5 rounded-full bg-[#DFB260]"
+              className="eq-bar w-1.5 rounded-full bg-[#D4AF37]"
               style={{ animationDelay: delay }}
             />
           ))}

@@ -39,7 +39,7 @@ export function ScreenShieldAlert({
         <button
           type="button"
           onClick={onDismiss}
-          className="mt-5 w-full rounded-xl bg-[#D4AF37] px-4 py-3 text-sm font-bold uppercase tracking-[0.14em] text-[#0B0E14] transition hover:bg-[#DFB260]"
+          className="mt-5 w-full rounded-xl bg-[#D4AF37] px-4 py-3 text-sm font-bold uppercase tracking-[0.14em] text-[#0B0E14] transition hover:bg-[#D4AF37]"
         >
           I understand — show live pass
         </button>

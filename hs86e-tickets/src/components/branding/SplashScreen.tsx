@@ -27,7 +27,7 @@ export function SplashScreen() {
       aria-label="Hot Since 86 Entertainment"
     >
       <div className="pointer-events-none absolute inset-0 bg-hero-radial" />
-      <div className="pointer-events-none absolute inset-0 animate-pulse-glow bg-[radial-gradient(circle_at_center,rgba(223,178,96,0.18),transparent_46%)]" />
+      <div className="pointer-events-none absolute inset-0 animate-pulse-glow bg-[radial-gradient(circle_at_center,rgba(212, 175, 55,0.18),transparent_46%)]" />
       <Logo size="splash" priority />
       <p className="relative mt-6 text-[11px] font-semibold uppercase tracking-[0.32em] text-gold">
         Entertainment

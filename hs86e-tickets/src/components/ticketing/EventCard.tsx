@@ -15,7 +15,7 @@ export function EventCard({ event }: { event: EventProduct }) {
   return (
     <Link
       href={`/events/${event.slug}`}
-      className="group block overflow-hidden rounded-xl border border-[#DFB260]/20 bg-[#0B0E14] transition duration-300 hover:border-[#F5D68D]/50 hover:shadow-[0_0_22px_rgba(223,178,96,0.14)] focus-visible:border-[#F5D68D]"
+      className="group block overflow-hidden rounded-xl border border-[#D4AF37]/20 bg-[#0B0E14] transition duration-300 hover:border-[#F5D68D]/50 hover:shadow-[0_0_22px_rgba(212, 175, 55,0.14)] focus-visible:border-[#F5D68D]"
     >
       <div className="relative aspect-[16/8] w-full overflow-hidden bg-[#161B22]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -33,24 +33,24 @@ export function EventCard({ event }: { event: EventProduct }) {
         </h3>
 
         <ul className="mt-3 space-y-2">
-          <li className="flex items-start gap-2 text-[13px] text-[#DFB260]">
-            <CalendarDays className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#DFB260]" aria-hidden />
+          <li className="flex items-start gap-2 text-[13px] text-[#D4AF37]">
+            <CalendarDays className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#D4AF37]" aria-hidden />
             <span>{formatCardDate(event.startsAt)}</span>
           </li>
-          <li className="flex items-start gap-2 text-[13px] text-[#DFB260]/90">
-            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#DFB260]" aria-hidden />
+          <li className="flex items-start gap-2 text-[13px] text-[#D4AF37]/90">
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#D4AF37]" aria-hidden />
             <span>{venue}</span>
           </li>
         </ul>
 
-        <div className="mt-4 flex items-end justify-between gap-3 border-t border-[#DFB260]/20 pt-3">
+        <div className="mt-4 flex items-end justify-between gap-3 border-t border-[#D4AF37]/20 pt-3">
           <div>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#DFB260]/70">From</p>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#D4AF37]/70">From</p>
             <p className="mt-0.5 font-display text-lg font-semibold text-[#F5D68D]">
               {formatMoney(from, event.currency)}
             </p>
           </div>
-          <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-[#DFB260] transition duration-300 group-hover:text-[#F5D68D] group-hover:drop-shadow-[0_0_10px_rgba(245,214,141,0.55)] group-focus-visible:text-[#F5D68D]">
+          <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-[#D4AF37] transition duration-300 group-hover:text-[#F5D68D] group-hover:drop-shadow-[0_0_10px_rgba(245,214,141,0.55)] group-focus-visible:text-[#F5D68D]">
             Buy tickets
             <ArrowRight className="h-3.5 w-3.5" aria-hidden />
           </span>

@@ -41,7 +41,7 @@ export function AuthAwareShell({
             ? {
                 backgroundColor: "#0B0E14",
                 backgroundImage:
-                  "radial-gradient(ellipse at top, rgba(223, 178, 96, 0.10), transparent 56%)",
+                  "radial-gradient(ellipse at top, rgba(212, 175, 55, 0.10), transparent 56%)",
               }
             : undefined
         }

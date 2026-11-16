@@ -33,7 +33,7 @@ export function ProductGallery({ images }: { images: string[] }) {
             key={`${src}-${index}`}
             type="button"
             onClick={() => setActive(index)}
-            className="aspect-square overflow-hidden rounded-lg border border-[#DFB260]/20 bg-[#161B22]"
+            className="aspect-square overflow-hidden rounded-lg border border-[#D4AF37]/20 bg-[#161B22]"
             aria-label={`Open gallery image ${index + 1}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -51,7 +51,7 @@ export function ProductGallery({ images }: { images: string[] }) {
         >
           <button
             type="button"
-            className="absolute right-4 top-4 text-[#DFB260]"
+            className="absolute right-4 top-4 text-[#D4AF37]"
             onClick={() => setActive(null)}
             aria-label="Close"
           >
@@ -61,7 +61,7 @@ export function ProductGallery({ images }: { images: string[] }) {
           <img
             src={images[active]}
             alt=""
-            className="max-h-[85vh] max-w-[92vw] rounded-xl border border-[#DFB260]/30 object-contain"
+            className="max-h-[85vh] max-w-[92vw] rounded-xl border border-[#D4AF37]/30 object-contain"
             onClick={(e) => e.stopPropagation()}
           />
         </div>

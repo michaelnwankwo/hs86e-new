@@ -69,7 +69,7 @@ export function TicketCard({
   return (
     <article
       className={cn(
-        "overflow-hidden rounded-2xl border border-[#DFB260]/20 bg-[#161B22]",
+        "overflow-hidden rounded-2xl border border-[#D4AF37]/20 bg-[#161B22]",
         highlight && "shadow-glow ring-1 ring-[#F5D68D]/50",
       )}
     >
@@ -80,26 +80,26 @@ export function TicketCard({
               {ticket.eventName}
             </p>
             {passTotal > 1 ? (
-              <span className="mt-1.5 inline-flex items-center rounded-full border border-[#DFB260]/30 bg-[#DFB260]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#F5D68D]">
+              <span className="mt-1.5 inline-flex items-center rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#F5D68D]">
                 Pass {passIndex} of {passTotal}
               </span>
             ) : (
-              <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[#DFB260]/80">
+              <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[#D4AF37]/80">
                 Pass {passIndex} of {passTotal}
               </p>
             )}
           </button>
-          <span className="shrink-0 rounded-full border border-[#DFB260]/30 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#DFB260]">
+          <span className="shrink-0 rounded-full border border-[#D4AF37]/30 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#D4AF37]">
             {ticket.tier}
           </span>
           <span
             className={cn(
               "shrink-0 rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em]",
               transferredAway
-                ? "border border-[#DFB260]/30 text-[#DFB260]"
+                ? "border border-[#D4AF37]/30 text-[#D4AF37]"
                 : live
                   ? "bg-[#043927] text-[#F8FAFC]"
-                  : "border border-[#DFB260]/30 text-[#DFB260]",
+                  : "border border-[#D4AF37]/30 text-[#D4AF37]",
             )}
           >
             {transferredAway ? "Transferred" : live ? "Ready" : ticket.status}
@@ -107,7 +107,7 @@ export function TicketCard({
           <button
             type="button"
             onClick={onToggle}
-            className="grid h-8 w-8 shrink-0 place-items-center text-[#DFB260]"
+            className="grid h-8 w-8 shrink-0 place-items-center text-[#D4AF37]"
             aria-label={open ? "Collapse pass" : "Expand pass"}
           >
             <ChevronDown
@@ -124,7 +124,7 @@ export function TicketCard({
           <button
             type="button"
             onClick={(e) => void copyId(e)}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[#DFB260]/20 text-[#DFB260] hover:bg-[#DFB260]/10"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[#D4AF37]/20 text-[#D4AF37] hover:bg-[#D4AF37]/10"
             aria-label="Copy ticket ID"
           >
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
@@ -132,7 +132,7 @@ export function TicketCard({
           <button
             type="button"
             onClick={(e) => void sharePass(e)}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[#DFB260]/20 text-[#DFB260] hover:bg-[#DFB260]/10"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[#D4AF37]/20 text-[#D4AF37] hover:bg-[#D4AF37]/10"
             aria-label="Share pass"
           >
             <Share2 className="h-3.5 w-3.5" />
@@ -147,14 +147,14 @@ export function TicketCard({
         )}
       >
         <div className="overflow-hidden">
-          <div className="border-t border-[#DFB260]/20 px-4 pb-5 pt-4">
+          <div className="border-t border-[#D4AF37]/20 px-4 pb-5 pt-4">
             {transferredAway ? (
-              <div className="rounded-2xl border border-[#DFB260]/20 bg-[#0B0E14] px-4 py-8 text-center">
+              <div className="rounded-2xl border border-[#D4AF37]/20 bg-[#0B0E14] px-4 py-8 text-center">
                 <p className="text-sm text-[#F8FAFC]">Transferred to</p>
                 <p className="mt-1 break-all font-mono text-sm text-[#F5D68D]">
                   {ticket.transferredTo || ticket.assignedEmail}
                 </p>
-                <p className="mt-3 text-xs text-[#DFB260]/70">
+                <p className="mt-3 text-xs text-[#D4AF37]/70">
                   Your QR for this seat is void. The guest can open it with their email.
                 </p>
               </div>
@@ -165,7 +165,7 @@ export function TicketCard({
                 </div>
               </LivePassFrame>
             ) : (
-              <div className="rounded-2xl border border-[#DFB260]/20 bg-[#0B0E14] px-4 py-8 text-center text-sm text-[#DFB260]/80">
+              <div className="rounded-2xl border border-[#D4AF37]/20 bg-[#0B0E14] px-4 py-8 text-center text-sm text-[#D4AF37]/80">
                 {ticket.status}
               </div>
             )}
@@ -178,26 +178,26 @@ export function TicketCard({
               <button
                 type="button"
                 onClick={(e) => void copyId(e)}
-                className="grid h-8 w-8 place-items-center rounded-full text-[#DFB260]"
+                className="grid h-8 w-8 place-items-center rounded-full text-[#D4AF37]"
                 aria-label="Copy ticket ID"
               >
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               </button>
             </div>
-            <div className="mt-3 space-y-2 text-sm text-[#DFB260]/90">
+            <div className="mt-3 space-y-2 text-sm text-[#D4AF37]/90">
               {ticket.venueName ? (
                 <p className="flex items-center justify-center gap-2">
-                  <MapPin className="h-4 w-4 text-[#DFB260]" />
+                  <MapPin className="h-4 w-4 text-[#D4AF37]" />
                   {ticket.venueName}
                 </p>
               ) : null}
               {ticket.startsAt ? (
                 <p className="flex items-center justify-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-[#DFB260]" />
+                  <CalendarDays className="h-4 w-4 text-[#D4AF37]" />
                   {formatWhen(ticket.startsAt)}
                 </p>
               ) : null}
-              <p className="text-center text-[11px] text-[#DFB260]/70">Order #{ticket.orderId}</p>
+              <p className="text-center text-[11px] text-[#D4AF37]/70">Order #{ticket.orderId}</p>
             </div>
             <div className="mt-4 space-y-2">
               <Button variant="gold" block onClick={() => void sharePass()}>

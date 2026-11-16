@@ -6,16 +6,16 @@ export function BrandLoader({ label = "Loading" }: { label?: string }) {
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center px-6 py-12">
       <div className="relative grid place-items-center">
-        <span className="absolute h-28 w-28 animate-pulse rounded-full bg-[#DFB260]/15 blur-2xl" />
-        <span className="absolute h-20 w-20 animate-ping rounded-full border border-[#DFB260]/25" />
+        <span className="absolute h-28 w-28 animate-pulse rounded-full bg-[#D4AF37]/15 blur-2xl" />
+        <span className="absolute h-20 w-20 animate-ping rounded-full border border-[#D4AF37]/25" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={LOGO_PATH}
           alt=""
-          className="relative z-10 h-16 w-auto animate-pulse object-contain drop-shadow-[0_0_24px_rgba(223,178,96,0.35)]"
+          className="relative z-10 h-16 w-auto animate-pulse object-contain drop-shadow-[0_0_24px_rgba(212, 175, 55,0.35)]"
         />
       </div>
-      <p className="mt-6 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#DFB260]">{label}</p>
+      <p className="mt-6 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#D4AF37]">{label}</p>
     </div>
   );
 }
@@ -26,14 +26,14 @@ export function EventListSkeleton() {
       {[0, 1].map((key) => (
         <div
           key={key}
-          className="overflow-hidden rounded-xl border border-[#DFB260]/15 bg-[#161B22]"
+          className="overflow-hidden rounded-xl border border-[#D4AF37]/15 bg-[#161B22]"
         >
           <div className="shimmer aspect-[16/8] w-full bg-[#0B0E14]" />
           <div className="space-y-3 px-4 py-4">
             <div className="shimmer h-5 w-2/3 rounded bg-[#0B0E14]" />
             <div className="shimmer h-3 w-1/2 rounded bg-[#0B0E14]" />
             <div className="shimmer h-3 w-3/5 rounded bg-[#0B0E14]" />
-            <div className="mt-2 flex justify-between border-t border-[#DFB260]/10 pt-3">
+            <div className="mt-2 flex justify-between border-t border-[#D4AF37]/10 pt-3">
               <div className="shimmer h-8 w-20 rounded bg-[#0B0E14]" />
               <div className="shimmer h-4 w-24 rounded bg-[#0B0E14]" />
             </div>
@@ -50,7 +50,7 @@ export function WalletSkeleton() {
       {[0, 1, 2].map((key) => (
         <div
           key={key}
-          className="flex items-center gap-3 rounded-2xl border border-[#DFB260]/15 bg-[#161B22] px-4 py-3.5"
+          className="flex items-center gap-3 rounded-2xl border border-[#D4AF37]/15 bg-[#161B22] px-4 py-3.5"
         >
           <div className="min-w-0 flex-1 space-y-2">
             <div className="shimmer h-4 w-2/3 rounded bg-[#0B0E14]" />

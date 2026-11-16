@@ -70,7 +70,7 @@ export default function NextEventCountdownWidget() {
         textAlign: "center",
       }}
     >
-      <p style={{ color: "#DFB260", fontSize: 11, letterSpacing: "0.22em", textTransform: "uppercase", margin: 0 }}>
+      <p style={{ color: "#D4AF37", fontSize: 11, letterSpacing: "0.22em", textTransform: "uppercase", margin: 0 }}>
         Hot Since 86 Entertainment
       </p>
       {event ? (
@@ -78,7 +78,7 @@ export default function NextEventCountdownWidget() {
           <h1 style={{ fontSize: 24, fontWeight: 600, margin: "12px 0 4px" }}>{event.name}</h1>
           <p style={{ color: "#F5D68D", fontSize: 14, margin: "0 0 20px" }}>{event.venue}</p>
           {live ? (
-            <p style={{ color: "#DFB260", fontSize: 18, margin: 0 }}>Doors are open</p>
+            <p style={{ color: "#D4AF37", fontSize: 18, margin: 0 }}>Doors are open</p>
           ) : seg ? (
             <div style={{ display: "flex", gap: 12 }}>
               {[
@@ -91,14 +91,14 @@ export default function NextEventCountdownWidget() {
                   key={cell.label}
                   style={{
                     background: "#161B22",
-                    border: "1px solid rgba(223,178,96,0.25)",
+                    border: "1px solid rgba(212, 175, 55,0.25)",
                     borderRadius: 12,
                     padding: "12px 14px",
                     minWidth: 64,
                   }}
                 >
                   <div style={{ fontSize: 30, fontWeight: 700, color: "#F5D68D" }}>{pad(cell.value)}</div>
-                  <div style={{ fontSize: 9, letterSpacing: "0.18em", color: "#DFB260", marginTop: 4 }}>{cell.label}</div>
+                  <div style={{ fontSize: 9, letterSpacing: "0.18em", color: "#D4AF37", marginTop: 4 }}>{cell.label}</div>
                 </div>
               ))}
             </div>

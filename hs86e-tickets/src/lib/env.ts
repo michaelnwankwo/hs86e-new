@@ -72,7 +72,7 @@ const schema = z.object({
   /** WooCommerce product category slug that holds event tickets. Empty = auto-detect FooEvents products. */
   WC_CATEGORY_SLUG: optionalString,
   /** When true, list every published product if no event-tickets category / FooEvents meta is found. */
-    WC_INCLUDE_ALL_PRODUCTS: z
+  WC_INCLUDE_ALL_PRODUCTS: z
     .string()
     .optional()
     .transform((v) => v === "true" || v === "1"),
@@ -80,6 +80,11 @@ const schema = z.object({
   /** Wallet subsystem. Feature-flagged and fail-closed: nothing moves money until explicitly enabled. */
   WALLET_ENABLED: z.string().optional().transform((v) => v === "true" || v === "1"),
   WALLET_FREEZE: z.string().optional().transform((v) => v === "true" || v === "1"),
+  CREATE_PUBLISH_FEE_MINOR: z.string().optional().transform((v) => {
+    if (v === undefined) return undefined;
+    const n = Number(v);
+    return Number.isInteger(n) && n >= 0 ? n : undefined;
+  }),
   SUPABASE_URL: optionalString,
   SUPABASE_SERVICE_ROLE_KEY: optionalString,
   /** When false, guest orders are NOT auto-matched by billing email (claim-flow required instead). */
@@ -119,6 +124,7 @@ export function getEnv(): AppEnv {
     WC_INCLUDE_ALL_PRODUCTS: process.env.WC_INCLUDE_ALL_PRODUCTS,
     WALLET_ENABLED: process.env.WALLET_ENABLED,
     WALLET_FREEZE: process.env.WALLET_FREEZE,
+    CREATE_PUBLISH_FEE_MINOR: process.env.CREATE_PUBLISH_FEE_MINOR,
     SUPABASE_URL: process.env.SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
     TICKET_GUEST_EMAIL_MATCH: process.env.TICKET_GUEST_EMAIL_MATCH,
@@ -224,7 +230,7 @@ export function hasSupabase() {
   return Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
-/** Wallet master switch. Default false - money routes fail closed. */
+/** Wallet master switch. Default false — money routes fail closed. */
 export function walletEnabled() {
   return getEnvSafe().WALLET_ENABLED === true;
 }
@@ -232,6 +238,12 @@ export function walletEnabled() {
 /** Read-only freeze: wallet routes answer but no money moves. */
 export function walletFrozen() {
   return getEnvSafe().WALLET_FREEZE === true;
+}
+
+/** Publishing fee for /create (minor units). Default ₦5,000 — override with CREATE_PUBLISH_FEE_MINOR. */
+export const DEFAULT_CREATE_PUBLISH_FEE_MINOR = 500_000;
+export function createPublishFeeMinor() {
+  return getEnvSafe().CREATE_PUBLISH_FEE_MINOR ?? DEFAULT_CREATE_PUBLISH_FEE_MINOR;
 }
 
 /** When false, guest orders are not auto-matched to accounts by email. */

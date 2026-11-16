@@ -23,11 +23,12 @@ const config: Config = {
           glow: "rgba(4, 57, 39, 0.55)",
         },
         gold: {
-          DEFAULT: "#DFB260",
+          // Standardized on the games page accent (client-approved): #D4AF37.
+          DEFAULT: "#D4AF37",
           metallic: "#D4AF37",
           champagne: "#F5D68D",
-          border: "rgba(223, 178, 96, 0.20)",
-          glow: "rgba(223, 178, 96, 0.15)",
+          border: "rgba(212, 175, 55, 0.20)",
+          glow: "rgba(212, 175, 55, 0.15)",
         },
         danger: {
           DEFAULT: "#8B2E2A",
@@ -43,13 +44,13 @@ const config: Config = {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        gold: "0 0 0 1px rgba(223, 178, 96, 0.20), 0 18px 50px rgba(0, 0, 0, 0.45)",
-        glow: "0 0 80px rgba(223, 178, 96, 0.15)",
+        gold: "0 0 0 1px rgba(212, 175, 55, 0.25), 0 18px 50px rgba(0, 0, 0, 0.45)",
+        glow: "0 0 80px rgba(212, 175, 55, 0.18)",
         emerald: "0 10px 30px rgba(4, 57, 39, 0.45)",
       },
       backgroundImage: {
         "hero-radial":
-          "radial-gradient(ellipse 70% 50% at 50% 28%, rgba(223, 178, 96, 0.15), transparent 62%)",
+          "radial-gradient(ellipse 70% 50% at 50% 28%, rgba(212, 175, 55, 0.18), transparent 62%)",
         "field-vignette":
           "radial-gradient(ellipse at center, #161B22 0%, #0B0E14 72%)",
       },

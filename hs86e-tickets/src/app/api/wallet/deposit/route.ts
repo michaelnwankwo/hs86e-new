@@ -52,7 +52,7 @@ export async function POST(request: Request) {
         tx_ref: ref,
         amount: parsed.data.amountMinor / 100,
         currency: "NGN",
-        redirect_url: `${origin}/dashboard?wallet=deposit&ref=${encodeURIComponent(ref)}`,
+        redirect_url: `${origin}/wallet?wallet=deposit&ref=${encodeURIComponent(ref)}`,
         customer: {
           email: auth.session.user.email,
           name: auth.session.user.name,

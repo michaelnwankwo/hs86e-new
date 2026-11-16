@@ -29,12 +29,12 @@ export function DownloadTicketButton({
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const glow = ctx.createRadialGradient(540, 280, 20, 540, 280, 420);
-      glow.addColorStop(0, "rgba(223,178,96,0.22)");
+      glow.addColorStop(0, "rgba(212, 175, 55,0.22)");
       glow.addColorStop(1, "rgba(11,14,20,0)");
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      ctx.strokeStyle = "rgba(223,178,96,0.35)";
+      ctx.strokeStyle = "rgba(212, 175, 55,0.35)";
       ctx.lineWidth = 4;
       ctx.strokeRect(48, 48, canvas.width - 96, canvas.height - 96);
 
@@ -49,7 +49,7 @@ export function DownloadTicketButton({
       ctx.font = "700 52px Georgia";
       ctx.fillText(ticket.eventName, 540, 470);
 
-      ctx.fillStyle = "#DFB260";
+      ctx.fillStyle = "#D4AF37";
       ctx.font = "600 28px sans-serif";
       ctx.fillText(ticket.tier.toUpperCase(), 540, 520);
 

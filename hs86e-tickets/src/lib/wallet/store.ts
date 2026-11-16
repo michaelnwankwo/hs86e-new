@@ -99,16 +99,20 @@ export async function settleWithdrawal(ref: string, outcome: "paid" | "reversed"
   );
 }
 
+const LEDGER_STATUSES = ["completed", "pending", "failed", "reversed", "disputed"] as const;
+export type LedgerStatus = (typeof LEDGER_STATUSES)[number];
+
 /** Recent ledger rows for a user's liability account (customer-visible history). */
-export async function listLedger(userId: number, limit = 50, beforeIso?: string) {
+export async function listLedger(userId: number, limit = 50, beforeIso?: string, statuses?: LedgerStatus[]) {
   const db = supabaseAdmin();
   if (!db) throw new Error("supabase_not_configured");
+  const filter = statuses && statuses.length > 0 ? statuses.filter((s) => (LEDGER_STATUSES as readonly string[]).includes(s)) : [...LEDGER_STATUSES];
   let query = db
     .from("ledger_entries")
     .select("public_id, direction, kind, amount_minor, balance_after_minor, status, ref, gateway_ref, note, created_at")
     .eq("user_id", userId)
     .eq("account", "customer-liability")
-    .in("status", ["completed", "pending", "failed", "reversed", "disputed"])
+    .in("status", filter)
     .order("created_at", { ascending: false })
     .order("public_id", { ascending: false })
     .limit(limit);
@@ -176,4 +180,66 @@ export async function findCompletedDepositByRef(ref: string) {
     .maybeSingle();
   if (error) throw new Error(`deposit_receipt failed: ${error.message}`);
   return data;
+}
+
+// ---------- Create-event submissions (/create) ----------
+export type EventSubmissionInput = {
+  userId: number;
+  email: string | null;
+  title: string;
+  category: string | null;
+  description: string;
+  venueName: string | null;
+  venueAddress: string | null;
+  city: string | null;
+  startsAt: string;   // ISO
+  endsAt: string | null;
+  tickets: Array<{ name: string; priceMinor: number; quantity: number | null }>;
+  feeMinor: number;
+  ref: string;
+};
+
+export async function createEventSubmission(input: EventSubmissionInput) {
+  return rpc<{ ok: boolean; error?: string; submissionId?: string; ref?: string; availableMinor?: number; status?: string }>(
+    "hs86e_create_event_submission",
+    {
+      p_user_id: input.userId,
+      p_email: input.email,
+      p_title: input.title,
+      p_category: input.category,
+      p_description: input.description,
+      p_venue_name: input.venueName,
+      p_venue_address: input.venueAddress,
+      p_city: input.city,
+      p_starts_at: input.startsAt,
+      p_ends_at: input.endsAt,
+      p_tickets: input.tickets,
+      p_fee_minor: input.feeMinor,
+      p_ref: input.ref,
+    },
+  );
+}
+
+export type EventSubmissionRow = {
+  id: string;
+  title: string;
+  category: string | null;
+  status: string;
+  fee_minor: number;
+  fee_ref: string | null;
+  starts_at: string;
+  created_at: string;
+};
+
+export async function listEventSubmissions(userId: number, limit = 10) {
+  const db = supabaseAdmin();
+  if (!db) throw new Error("supabase_not_configured");
+  const { data, error } = await db
+    .from("event_submissions")
+    .select("id, title, category, status, fee_minor, fee_ref, starts_at, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`event_submissions_list failed: ${error.message}`);
+  return (data ?? []) as EventSubmissionRow[];
 }

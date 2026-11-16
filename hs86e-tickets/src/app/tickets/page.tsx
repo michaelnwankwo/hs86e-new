@@ -28,7 +28,7 @@ export default async function TicketsPage({
     <div className="px-4 py-6">
       <div className="mb-6">
         <h1 className="font-display text-3xl text-[#F8FAFC]">Ticket wallet</h1>
-        <p className="mt-2 text-sm text-[#DFB260]/80">
+        <p className="mt-2 text-sm text-[#D4AF37]/80">
           Look up with a Ticket ID or an Order ID and its checkout key. Share or transfer
           individual passes from a bulk order.
         </p>
@@ -36,7 +36,7 @@ export default async function TicketsPage({
 
       <FindTicketsForm initialOrder={q.order} initialOrderKey={q.key} initialTicket={ticket} />
 
-      <p className="mb-6 mt-2 text-center text-xs text-[#DFB260]/60">
+      <p className="mb-6 mt-2 text-center text-xs text-[#D4AF37]/60">
         Passes bought on this phone stay collapsed here. Tap a row to show its QR. Copy the Ticket
         ID or share a direct pass link with a guest.
       </p>

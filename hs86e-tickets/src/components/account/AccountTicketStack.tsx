@@ -169,7 +169,7 @@ function AccountTicketCard({
         <div className="overflow-hidden">
           <div className="border-t border-gold/20 px-4 pb-5 pt-4">
             <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
-              <div className="min-w-0 space-y-2 text-sm text-[#DFB260]/90">
+              <div className="min-w-0 space-y-2 text-sm text-[#D4AF37]/90">
                 <p className="text-base font-semibold text-ink">{ticket.attendeeName || "Guest"}</p>
                 <p className="text-[10px] uppercase tracking-[0.16em] text-gold/80">
                   Pass {passIndex} of {passTotal} · Order #{ticket.orderId}
