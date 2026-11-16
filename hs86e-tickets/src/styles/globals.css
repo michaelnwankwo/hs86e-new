@@ -161,7 +161,7 @@ button {
   background: linear-gradient(
     90deg,
     rgba(22, 27, 34, 1) 0%,
-    rgba(212, 175, 55,  0.12) 50%,
+    rgba(212, 175, 55, 0.12) 50%,
     rgba(22, 27, 34, 1) 100%
   );
   background-size: 200% 100%;

@@ -46,7 +46,7 @@ function TicketSkeleton() {
       {[0, 1, 2].map((n) => (
         <div
           key={n}
-          className="h-[72px] animate-pulse rounded-xl border border-gold/10 bg-[#111111]/60"
+          className="h-[72px] shimmer rounded-xl bg-surface-raised/80"
         />
       ))}
     </div>
