@@ -1,54 +1,86 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 
 /**
- * Safari/Chrome-style route progress bar.
- * Creeps 0 -> 85% during a navigation, completes to 100% on arrival, fades out.
- * Mounted inside the sticky AppHeader along its bottom border — never blocks input.
+ * Safari/Chrome-style route progress bar — a persistent 2.5px gold line pinned
+ * to the AppHeader's bottom border.
+ *
+ * Behaviour:
+ *  • start   — on internal <a> clicks / popstate; rAF-driven ease-out creep
+ *              from 0% to 85% over ~1.8s (cubic ease-out, silky & predictable).
+ *  • complete — when the App Router lands on the new pathname: instantly
+ *              scale to 100%, fade over 200ms, reset silently to 0%.
+ *  • transform: scaleX (origin-left) — zero layout thrash, 60fps throughout.
+ *  • aria-hidden & pointer-events-none — never blocks input or a11y tree.
  */
+const CREEP_MS = 1800;
+const MAX_CREEP = 0.85;
+const FADE_MS = 200;
+
 export function GoldTopLoader() {
   const pathname = usePathname();
-  const [progress, setProgress] = useState<number | null>(null);
+  const barRef = useRef<HTMLDivElement>(null);
   const running = useRef(false);
-  const creepTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const raf = useRef<number | null>(null);
   const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startTs = useRef(0);
 
-  const clearCreep = () => {
-    if (creepTimer.current) {
-      clearInterval(creepTimer.current);
-      creepTimer.current = null;
-    }
+  const setScaleX = (p: number) => {
+    if (barRef.current) barRef.current.style.transform = `scaleX(${p})`;
   };
 
   const start = () => {
     if (fadeTimer.current) {
       clearTimeout(fadeTimer.current);
       fadeTimer.current = null;
+      if (barRef.current) barRef.current.style.opacity = "1";
     }
     if (running.current) return;
     running.current = true;
-    setProgress(12);
-    creepTimer.current = setInterval(() => {
-      setProgress((p) => {
-        if (p === null) return p;
-        const next = p + Math.max(0.5, (85 - p) * 0.07);
-        return Math.min(85, next);
-      });
-    }, 110);
+    startTs.current = performance.now();
+    setScaleX(0.02);
+    const tick = (now: number) => {
+      if (!running.current) return;
+      const t = Math.min(1, (now - startTs.current) / CREEP_MS);
+      const eased = 1 - Math.pow(1 - t, 3); // cubic ease-out
+      setScaleX(MAX_CREEP * eased);
+      if (t < 1) raf.current = requestAnimationFrame(tick);
+    };
+    raf.current = requestAnimationFrame(tick);
   };
 
   const complete = () => {
     if (!running.current) return;
     running.current = false;
-    clearCreep();
-    setProgress(100);
-    if (fadeTimer.current) clearTimeout(fadeTimer.current);
-    fadeTimer.current = setTimeout(() => setProgress(null), 300);
+    if (raf.current) {
+      cancelAnimationFrame(raf.current);
+      raf.current = null;
+    }
+    setScaleX(1); // instant 100%
+    const bar = barRef.current;
+    if (bar) {
+      // Force one committed frame at 100% before fading.
+      requestAnimationFrame(() => {
+        bar.style.opacity = "0";
+      });
+    }
+    fadeTimer.current = setTimeout(() => {
+      if (barRef.current) {
+        barRef.current.style.transition = "none";
+        setScaleX(0);
+        barRef.current.style.opacity = "1";
+        // Restore the transition on the next frame.
+        requestAnimationFrame(() => {
+          if (barRef.current) barRef.current.style.transition = "opacity 200ms ease";
+        });
+      }
+      fadeTimer.current = null;
+    }, FADE_MS);
   };
 
-  // Start the creep on any same-origin internal navigation (taps on links).
+  // Start the creep for same-origin internal navigations (and back/forward).
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
@@ -65,38 +97,41 @@ export function GoldTopLoader() {
         /* malformed href — ignore */
       }
     };
+    const onPop = () => start();
     document.addEventListener("click", onClick, true);
-    return () => document.removeEventListener("click", onClick, true);
+    window.addEventListener("popstate", onPop);
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      window.removeEventListener("popstate", onPop);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Complete when the router actually lands on the new route.
+  // Complete the instant the router commits the new route to the tree.
   useEffect(() => {
     complete();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // Clean timers on unmount.
+  // Hygiene on unmount.
   useEffect(
     () => () => {
-      clearCreep();
+      if (raf.current) cancelAnimationFrame(raf.current);
       if (fadeTimer.current) clearTimeout(fadeTimer.current);
     },
     [],
   );
 
-  if (progress === null) return null;
   return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 bottom-0 z-50 h-[2.5px] overflow-hidden"
-    >
+    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 z-50 h-[2.5px] overflow-hidden">
       <div
-        className="gold-top-loader relative h-full bg-[linear-gradient(90deg,#F5D68D,#D4AF37,#C5A059)]"
+        ref={barRef}
+        className="relative h-full origin-left bg-[#D4AF37]"
         style={{
-          width: `${progress}%`,
-          opacity: progress >= 100 ? 0 : 1,
-          boxShadow: "0 0 10px rgba(212,175,55,0.85), 0 0 24px rgba(212,175,55,0.35)",
+          transform: "scaleX(0)",
+          opacity: 1,
+          transition: "opacity 200ms ease",
+          boxShadow: "0 0 8px rgba(212,175,55,0.6), 0 0 20px rgba(212,175,55,0.32)",
         }}
       >
         <span className="gold-top-stripe absolute inset-y-0 right-0 w-16 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.9),transparent)]" />
