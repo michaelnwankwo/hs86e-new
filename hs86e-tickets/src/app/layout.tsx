@@ -6,8 +6,6 @@ import { AuthAwareShell } from "@/components/layout/AuthAwareShell";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Providers } from "@/components/layout/Providers";
-import { PWAInstallButton } from "@/components/pwa/PWAInstallButton";
-import { IosInstallBanner } from "@/components/pwa/IosInstallBanner";
 import { BRAND, LOGO_PATH } from "@/lib/constants";
 import "@/styles/globals.css";
 
@@ -88,8 +86,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             header={<AppHeader />}
             footer={<AppFooter />}
             bottomNav={<BottomNav />}
-            pwaInstallButton={<PWAInstallButton />}
-            iosInstallBanner={<IosInstallBanner />}
           >
             {children}
           </AuthAwareShell>

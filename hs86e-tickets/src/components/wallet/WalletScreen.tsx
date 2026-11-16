@@ -5,6 +5,7 @@ import { ArrowDownLeft, ArrowUpRight, Loader2, Wallet } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { DepositModal, WithdrawModal, DepositReturnBanner } from "@/components/wallet/WalletModals";
 import { WalletHistory } from "@/components/wallet/WalletHistory";
+import { InstallAppCard } from "@/components/pwa/InstallAppCard";
 
 type BalanceResponse = {
   walletEnabled: boolean;
@@ -76,6 +77,7 @@ function WalletScreenInner() {
       {modal === "withdraw" && <WithdrawModal onClose={() => setModal(null)} onSuccess={() => void refresh()} />}
 
       {enabled && <WalletHistory limit={25} />}
+      <InstallAppCard />
     </section>
   );
 }

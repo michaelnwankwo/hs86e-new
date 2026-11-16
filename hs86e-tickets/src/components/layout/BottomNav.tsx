@@ -60,14 +60,14 @@ export function BottomNav() {
                     href={item.href}
                     aria-label="Create an event"
                     aria-current={active ? "page" : undefined}
-                    className="group absolute -top-8 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#F5D68D] via-[#D4AF37] to-[#C5A059] text-[#111111] shadow-[0_0_0_5px_#0B0E14,0_10px_28px_rgba(212,175,55,0.45)] transition-transform duration-200 hover:scale-105 active:scale-95 focus-visible:outline-gold"
+                    className="group absolute -top-10 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#F5D68D] via-[#D4AF37] to-[#C5A059] text-[#111111] shadow-[0_0_0_5px_#0B0E14,0_10px_28px_rgba(212,175,55,0.45)] transition-transform duration-200 hover:scale-105 active:scale-95 focus-visible:outline-gold"
                   >
                     <Icon className="h-7 w-7 transition-transform duration-200 group-hover:rotate-90" strokeWidth={2.4} aria-hidden />
                   </Link>
                   <span
                     aria-hidden
                     className={cn(
-                      "mt-8 text-[9px] font-semibold uppercase tracking-[0.18em] transition-colors",
+                      "mt-10 text-[9px] font-semibold uppercase tracking-[0.18em] transition-colors",
                       active ? "text-gold" : "text-ink-muted"
                     )}
                   >

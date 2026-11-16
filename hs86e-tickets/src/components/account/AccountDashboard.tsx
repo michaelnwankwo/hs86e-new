@@ -6,6 +6,7 @@ import { useCustomerAccount } from "@/components/account/CustomerAccountContext"
 import { WalletPanel } from "@/components/wallet/WalletPanel";
 import { AccountTicketStack } from "@/components/account/AccountTicketStack";
 import { GuestAccountPanel } from "@/components/account/GuestAccountPanel";
+import { InstallAppCard } from "@/components/pwa/InstallAppCard";
 
 function SigningOutSplash() {
   return (
@@ -60,6 +61,7 @@ export function AccountDashboard() {
       <header className="rounded-2xl border border-gold/20 bg-surface-raised/70 p-5 backdrop-blur-md"><p className="text-xs font-semibold uppercase tracking-[.18em] text-gold">Account</p><h1 className="mt-1 font-display text-3xl text-ink">Welcome, {user.name}</h1><p className="mt-1 text-sm text-ink-muted">{user.email}</p></header>
       <WalletPanel />
       <AccountTicketStack />
+      <InstallAppCard />
       {logoutWarning && <p role="alert" className="text-sm text-danger-bright">{logoutWarning}</p>}
       <button type="button" onClick={() => void signOut()} className="min-h-11 w-full rounded-xl border border-gold/20 px-4 text-sm text-ink-muted transition-colors hover:border-gold/40 hover:text-ink sm:w-auto">Sign out</button>
     </section>

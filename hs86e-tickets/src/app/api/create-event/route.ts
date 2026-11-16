@@ -43,8 +43,10 @@ export async function GET() {
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (err) {
+    // Supabase may not be migrated yet — serve a calm 200 so /create renders
+    // its "launching soon"/preview state instead of an error.
     console.error("[hs86e] create-event submissions failed:", err);
-    return NextResponse.json({ error: "Could not load your submissions" }, { status: 503 });
+    return NextResponse.json({ walletEnabled: false, feeMinor: createPublishFeeMinor(), currency: "NGN", submissions: [] });
   }
 }
 

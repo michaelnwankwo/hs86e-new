@@ -8,8 +8,6 @@ type AuthAwareShellProps = {
   header: ReactNode;
   footer: ReactNode;
   bottomNav: ReactNode;
-  pwaInstallButton: ReactNode;
-  iosInstallBanner: ReactNode;
 };
 
 const AUTH_PATHS = new Set(["/login", "/signup"]);
@@ -20,8 +18,6 @@ export function AuthAwareShell({
   header,
   footer,
   bottomNav,
-  pwaInstallButton,
-  iosInstallBanner,
 }: AuthAwareShellProps) {
   const pathname = usePathname();
   const normalizedPath = pathname?.replace(/\/+$/, "") || "/";
@@ -34,14 +30,14 @@ export function AuthAwareShell({
         className={
           isAuthPage
             ? "flex min-h-[100dvh] w-full items-center justify-center px-5 py-10"
-            : "safe-bottom mx-auto min-h-[calc(100dvh-4rem)] max-w-3xl"
+            : "safe-bottom mx-auto max-w-3xl"
         }
         style={
           isAuthPage
             ? {
                 backgroundColor: "#0B0E14",
                 backgroundImage:
-                  "radial-gradient(ellipse at top, rgba(212, 175, 55, 0.10), transparent 56%)",
+                  "radial-gradient(ellipse at top, rgba(212, 175, 55,  0.10), transparent 56%)",
               }
             : undefined
         }
@@ -50,8 +46,6 @@ export function AuthAwareShell({
       </main>
       {!isAuthPage ? footer : null}
       {!isAuthPage ? bottomNav : null}
-      {!isAuthPage ? pwaInstallButton : null}
-      {!isAuthPage ? iosInstallBanner : null}
     </>
   );
 }

@@ -101,7 +101,6 @@ function MySubmissions({ items }: { items: Submission[] }) {
 
 export function CreateEventScreen() {
   const [cfg, setCfg] = useState<Config | null>(null);
-  const [cfgError, setCfgError] = useState("");
   const [step, setStep] = useState(1);
 
   const [title, setTitle] = useState("");
@@ -119,15 +118,16 @@ export function CreateEventScreen() {
   const [insufficient, setInsufficient] = useState<{ availableMinor?: number; feeMinor: number } | null>(null);
   const [result, setResult] = useState<{ ref: string; feeMinor: number; availableMinor?: number; status?: string } | null>(null);
 
+  // Fail-soft: any network/server/Supabase-migration failure renders the same
+  // clean "launching soon" panel instead of an error banner.
+  const FALLBACK_CFG: Config = { walletEnabled: false, feeMinor: 500_000, currency: "NGN", submissions: [] };
   const loadConfig = useCallback(async () => {
     try {
       const res = await fetch("/api/create-event", { cache: "no-store" });
       const body = (await res.json().catch(() => null)) as Config | null;
-      if (!res.ok || !body) throw new Error("cfg_failed");
-      setCfg(body);
-      setCfgError("");
+      setCfg(body && typeof body === "object" && typeof body.feeMinor === "number" ? body : FALLBACK_CFG);
     } catch {
-      setCfgError("Could not load event creation. Please refresh.");
+      setCfg(FALLBACK_CFG);
     }
   }, []);
 
@@ -220,10 +220,6 @@ export function CreateEventScreen() {
   }
 
   const walletCardCls = "rounded-2xl border border-gold/25 bg-[#111111]/85 p-5 backdrop-blur-md sm:p-6";
-
-  if (cfgError) {
-    return <section className="mx-auto w-full max-w-2xl px-4 py-12"><p role="alert" className="rounded-2xl border border-danger-bright/40 p-5 text-sm text-danger-bright">{cfgError}</p></section>;
-  }
 
   // Success screen
   if (result) {

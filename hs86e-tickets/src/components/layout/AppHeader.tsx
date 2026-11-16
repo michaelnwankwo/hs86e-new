@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useRef } from "react";
 import { cn } from "@/lib/utils";
 import { GoldParticleField } from "./GoldParticleField";
+import { GoldTopLoader } from "./GoldTopLoader";
 
 /** Asset 1 — uploaded gold 3D logo (transparent PNG) in /public. */
 const LOGO_SRC = "/logohs86e.png";
@@ -104,7 +105,7 @@ export function AppHeader() {
         <div className="relative z-10 flex items-center justify-between px-4 py-2 md:px-8 lg:py-3">
           {/*
            * Asset 1 — “HOT SINCE 86 ENTERTAINMENT” gold logo.
-           * h-[43px] mobile (h-9 +20%) → h-12 tablet → h-16/h-20 laptop & desktop, exact aspect ratio.
+           * h-[54px] mobile → h-[58px] small → h-14 tablet → h-16/h-20 laptop & desktop, exact aspect ratio.
            *
            * Stealth trigger: select-none + touch-manipulation stop rapid tapping
            * from highlighting text or firing mobile double-tap zoom.
@@ -120,7 +121,7 @@ export function AppHeader() {
               <img
                 src={LOGO_SRC}
                 alt="Hot Since 86 Entertainment"
-                className="relative z-[1] h-[43px] w-auto object-contain drop-shadow-[0_2px_8px_rgba(212, 175, 55, 0.2)] md:h-12 lg:h-16 xl:h-20"
+                className="relative z-[1] h-[54px] w-auto object-contain drop-shadow-[0_2px_8px_rgba(212, 175, 55, 0.2)] sm:h-[58px] md:h-14 lg:h-16 xl:h-20"
               />
               {/* Metallic glitter sheen — masked to the gold logo pixels */}
               <span aria-hidden="true" className="logo-sheen" />
@@ -128,7 +129,7 @@ export function AppHeader() {
           </Link>
 
           <nav aria-label="HS86E primary">
-            <ul className="flex items-center gap-3 sm:gap-4 md:gap-6">
+            <ul className="flex items-center gap-2.5 sm:gap-4 md:gap-6">
               {NAV_ITEMS.map((item) => {
                 const active = item.isActive(pathname);
                 return (
@@ -139,7 +140,7 @@ export function AppHeader() {
                       className={cn(
                         // Uppercase, semibold, tracking-wider — small on mobile,
                         // scaled up at md:/lg: for crisp desktop/tablet legibility.
-                        "flex items-center whitespace-nowrap border-b-2 px-0.5 pb-1 text-[10px] font-semibold uppercase tracking-wider transition-colors duration-200 sm:text-xs md:text-sm lg:text-base",
+                        "flex items-center whitespace-nowrap border-b-2 px-0.5 pb-1 text-xs font-semibold uppercase tracking-wider transition-colors duration-200 sm:text-sm md:text-base",
                         active
                           ? // Active — ONLY gold text + clean thin gold underline (no box, no glow)
                             "border-[#D4AF37] text-[#D4AF37]"
@@ -155,6 +156,8 @@ export function AppHeader() {
             </ul>
           </nav>
         </div>
+        {/* Safari/Chrome-style route progress bar along the bottom border */}
+        <GoldTopLoader />
       </div>
     </header>
   );
