@@ -67,14 +67,54 @@ export function validSessionToken(value: unknown): value is string {
   return typeof value === "string" && /^[A-Za-z0-9_-]{32,256}$/.test(value);
 }
 
+/**
+ * Same-origin guard for cookie-setting POST routes.
+ *
+ * The naive `new URL(request.url).origin` comparison breaks on Netlify: the
+ * Next.js runtime may hand the function an internal URL (different scheme and
+ * host than the public site), so the check rejected EVERY browser login —
+ * login/register both returned 403 "We could not verify this sign-in request".
+ *
+ * Fix: compare the browser's Origin against the ORIGINAL request coordinates,
+ * taken from the forwarding headers Netlify sets (x-forwarded-proto/host),
+ * falling back to the Host header, then to request.url. Scheme must match when
+ * determinable (https on Netlify); the host must always match. Cross-site POSTs
+ * still carry the attacker's origin and are rejected.
+ */
 export function sameOriginRequest(request: Request) {
-  const origin = request.headers.get("origin");
-  if (!origin) return false;
+  const originHeader = request.headers.get("origin");
+  if (!originHeader) return false;
+  let origin: URL;
   try {
-    return new URL(origin).origin === new URL(request.url).origin;
+    origin = new URL(originHeader);
   } catch {
     return false;
   }
+
+  const stripDefaultPort = (host: string, proto?: string) =>
+    host.replace(/:443$/, proto === "https" || proto === undefined ? "" : ":443").replace(/:80$/, proto === "http" || proto === undefined ? "" : ":80");
+
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0].trim().toLowerCase().replace(/:+$/, "") || undefined;
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0].trim().toLowerCase() || undefined;
+  const hostHeader = request.headers.get("host")?.trim().toLowerCase() || undefined;
+  const forwardedSsl = request.headers.get("x-forwarded-ssl")?.trim().toLowerCase();
+
+  let url: URL | null = null;
+  try {
+    url = new URL(request.url);
+  } catch {
+    url = null;
+  }
+  const urlHost = url?.host?.toLowerCase() || undefined;
+  const urlProto = url?.protocol ? url.protocol.replace(":", "").toLowerCase() : undefined;
+
+  const host = forwardedHost ?? hostHeader ?? urlHost;
+  const proto = forwardedProto ?? (forwardedSsl === "on" ? "https" : undefined) ?? urlProto;
+  if (!host) return false;
+
+  const originProto = origin.protocol.replace(":", "").toLowerCase();
+  if (proto && originProto !== proto) return false;
+  return stripDefaultPort(origin.host.toLowerCase(), proto ?? originProto) === stripDefaultPort(host, proto);
 }
 
 export function parseAccountSession(value: unknown): AccountSession | null {

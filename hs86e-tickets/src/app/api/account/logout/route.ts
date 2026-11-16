@@ -5,12 +5,18 @@ import {
   callWordPressCustomer,
   CUSTOMER_SESSION_COOKIE,
   noStoreHeaders,
+  sameOriginRequest,
 } from "@/lib/customer-account-proxy";
 
 /**
  * Sign-out must NEVER leave the browser holding a usable session cookie.
- * Mismatched Origin -> 403 (cookie untouched). Missing Origin (WebViews):
- * allowed — worst case is a forced logout, never a data exposure.
+ *
+ * Same-origin policy is enforced the same way as login when an Origin header
+ * is present (mismatch -> 403, cookie untouched). When no Origin header is
+ * available (some WebViews/embedded shells strip it), the request is allowed:
+ * worst case is a forced logout, which leaks nothing. CSRF-style silent
+ * logout is a nuisance, never a data exposure — availability of sign-out
+ * wins over strictness here.
  */
 function signOutOriginOk(request: Request): boolean {
   const origin = request.headers.get("origin");
@@ -23,11 +29,7 @@ function signOutOriginOk(request: Request): boolean {
       fetchSite === "none"
     );
   }
-  try {
-    return new URL(origin).origin === new URL(request.url).origin;
-  } catch {
-    return false;
-  }
+  return sameOriginRequest(request);
 }
 
 const COOKIE_CLEAR = {
@@ -38,8 +40,21 @@ const COOKIE_CLEAR = {
   maxAge: 0,
 };
 
-/** Expire every auth cookie name that can exist on THIS origin. WP-domain cookies die via the backend DELETE. */
-const LEGACY_COOKIE_NAMES = ["hs86e_customer_session", "hs86e_session", "wp_jwt_auth", "auth_token"];
+/**
+ * Legacy/auth cookie names this app has used across iterations, plus the
+ * typical WP JWT names. Anything the browser might still hold under a `path=/`
+ * scope gets expired defensively. NOTE: `wordpress_logged_in_*` /
+ * `wp_woocommerce_session_*` cookies are scoped to the WordPress domain
+ * (hotsince86ent.com), not to this Netlify app — they are invalidated by the
+ * backend DELETE call above, never by Set-Cookie here. We clear the exact
+ * names that can exist on THIS origin.
+ */
+const LEGACY_COOKIE_NAMES = [
+  "hs86e_customer_session",
+  "hs86e_session",
+  "wp_jwt_auth",
+  "auth_token",
+];
 
 export async function POST(request: Request) {
   if (!signOutOriginOk(request)) {
@@ -52,6 +67,8 @@ export async function POST(request: Request) {
 
   if (token) {
     try {
+      // Backend termination: revoke the WP session server-side. Best-effort —
+      // the browser cookie is cleared regardless of the outcome.
       await callWordPressCustomer("session", {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -66,6 +83,9 @@ export async function POST(request: Request) {
     { ok: true, serverSessionRevoked: revoked },
     { headers: noStoreHeaders() },
   );
-  for (const name of LEGACY_COOKIE_NAMES) { response.cookies.set(name, "", COOKIE_CLEAR); }
+  // Belt and braces: clear the cookie even if anything above threw.
+  for (const name of LEGACY_COOKIE_NAMES) {
+    response.cookies.set(name, "", COOKIE_CLEAR);
+  }
   return response;
 }
