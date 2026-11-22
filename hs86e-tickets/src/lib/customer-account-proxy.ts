@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getEnvSafe } from "@/lib/env";
+import { getEnvSafe, emailVerificationRequired } from "@/lib/env";
 
 export const CUSTOMER_SESSION_COOKIE = "hs86e_customer_session";
 export const CUSTOMER_SESSION_MAX_AGE = 60 * 60 * 24 * 7;
@@ -21,7 +21,7 @@ export const accountSessionSchema = z.object({ user: userSchema, wallet: walletS
 export type AccountSession = z.infer<typeof accountSessionSchema>;
 
 export class AccountProxyError extends Error {
-  constructor(public readonly status: number, message: string) {
+  constructor(public readonly status: number, message: string, public readonly code?: string) {
     super(message);
   }
 }
@@ -49,16 +49,25 @@ export async function callWordPressCustomer(
   }
   const body = await response.json().catch(() => null) as Record<string, unknown> | null;
   if (!response.ok) {
-    const message = response.status === 401
-      ? "Incorrect email or password. Please try again."
-      : response.status === 403
-        ? "Sign-in was blocked. Refresh the page and try again."
-      : response.status === 409
-        ? "An account already uses that email"
-        : response.status === 429
-          ? "Too many attempts. Wait and try again"
-          : "Account service could not complete the request";
-    throw new AccountProxyError(response.status, message);
+    // WordPress may answer with { code: "email_unverified" } (403) when the
+    // activation plugin blocks an unverified customer. Surface the code so the
+    // login route can return the dedicated verify-your-email message — but
+    // only when the Next.js flag is active.
+    const wpCode = typeof body?.code === "string" ? body.code : undefined;
+    const emailUnverified =
+      response.status === 403 && wpCode === "email_unverified" && emailVerificationRequired();
+    const message = emailUnverified
+      ? "Confirm your email — we sent you a link."
+      : response.status === 401
+        ? "Incorrect email or password. Please try again."
+        : response.status === 403
+          ? "Sign-in was blocked. Refresh the page and try again."
+        : response.status === 409
+          ? "An account already uses that email"
+          : response.status === 429
+            ? "Too many attempts. Wait and try again"
+            : "Account service could not complete the request";
+    throw new AccountProxyError(response.status, message, emailUnverified ? "email_unverified" : wpCode);
   }
   return body;
 }

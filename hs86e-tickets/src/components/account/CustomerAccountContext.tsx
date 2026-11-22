@@ -15,14 +15,14 @@ type State =
 type ContextValue = State & {
   refresh: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<{ pendingVerification: boolean }>;
   logout: () => Promise<void>;
 }
-
 /**
  * Purge every client-side session/account artifact. httpOnly cookies are
  * cleared by the /api/account/logout route — this covers everything JS can
- * reach. The device wallet and scan identity are PRESERVED on purpose.
+ * reach. The device wallet and scan identity are PRESERVED on purpose so a
+ * sign-out never destroys passes stored on this phone (see /tickets).
  */
 const STORAGE_PRESERVE = new Set([
   "hs86e_saved_tickets",
@@ -42,7 +42,9 @@ function purgeClientSessionArtifacts() {
     }
     for (const key of doomed) window.localStorage.removeItem(key);
     window.sessionStorage.clear();
+    // Cross-tab signal: other open tabs flip to signed-out immediately.
     window.localStorage.setItem(SIGNOUT_SIGNAL_KEY, String(Date.now()));
+    // Drop any auth'd page/flight snapshots an older service worker may hold.
     if ("caches" in window) {
       caches.keys().then((keys) =>
         Promise.all(
@@ -53,7 +55,7 @@ function purgeClientSessionArtifacts() {
       ).catch(() => undefined);
     }
   } catch {
-    // Storage unavailable (private mode); navigation still proceeds.
+    // Storage can be unavailable (private mode); navigation still proceeds.
   }
 }
 
@@ -91,7 +93,8 @@ export function CustomerAccountProvider({ children, initialSession }: { children
   }, []);
   useEffect(() => { if (!initialSession) void refresh(); }, [initialSession, refresh]);
 
-  // Another tab signed out: drop this tab's cached session immediately.
+  // Another tab signed out (storage event fires there only): drop this tab's
+  // cached session so it can never render the authenticated shell again.
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key === SIGNOUT_SIGNAL_KEY) {
@@ -108,8 +111,18 @@ export function CustomerAccountProvider({ children, initialSession }: { children
     setState({ status: "signed_in", session });
   }, []);
   const register = useCallback(async (name: string, email: string, password: string) => {
-    const session = await submit<CustomerAccountSession>("/api/account/register", { name, email, password });
-    setState({ status: "signed_in", session });
+    const result = await submit<CustomerAccountSession | { ok: true; pendingVerification: true }>(
+      "/api/account/register",
+      { name, email, password },
+    );
+    // Flag-gated email activation: WordPress acknowledged the signup but no
+    // session cookie was set — the UI shows the activation panel instead of
+    // signing the user in.
+    if ((result as { pendingVerification?: boolean }).pendingVerification === true) {
+      return { pendingVerification: true };
+    }
+    setState({ status: "signed_in", session: result as CustomerAccountSession });
+    return { pendingVerification: false };
   }, []);
   const logout = useCallback(async () => {
     try {

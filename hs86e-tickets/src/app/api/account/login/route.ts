@@ -10,6 +10,7 @@ import {
   sameOriginRequest,
   validSessionToken,
 } from "@/lib/customer-account-proxy";
+import { emailVerificationRequired } from "@/lib/env";
 
 const schema = z.object({ email: z.string().trim().email().max(254), password: z.string().min(1).max(256) });
 
@@ -39,6 +40,18 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     const status = error instanceof AccountProxyError ? (error.status >= 500 ? 503 : error.status) : 503;
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Account service unavailable" }, { status, headers: noStoreHeaders() });
+    const emailUnverified =
+      error instanceof AccountProxyError && error.code === "email_unverified" && emailVerificationRequired();
+    return NextResponse.json(
+      {
+        error: emailUnverified
+          ? "Confirm your email — we sent you a link."
+          : error instanceof Error
+            ? error.message
+            : "Account service unavailable",
+        ...(emailUnverified ? { code: "email_unverified" as const } : {}),
+      },
+      { status, headers: noStoreHeaders() },
+    );
   }
 }

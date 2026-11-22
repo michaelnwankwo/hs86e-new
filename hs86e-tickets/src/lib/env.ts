@@ -77,6 +77,15 @@ const schema = z.object({
     .optional()
     .transform((v) => v === "true" || v === "1"),
 
+  /**
+   * Flag-gated email verification. Default false — existing behaviour is
+   * preserved until the WordPress activation plugin is deployed and this is
+   * explicitly enabled in Netlify (WP contract: see hs86e-stage2-terminal-commands.md §6).
+   */
+  EMAIL_VERIFICATION_REQUIRED: z
+    .string()
+    .optional()
+    .transform((v) => v === "true" || v === "1"),
   /** Wallet subsystem. Feature-flagged and fail-closed: nothing moves money until explicitly enabled. */
   WALLET_ENABLED: z.string().optional().transform((v) => v === "true" || v === "1"),
   WALLET_FREEZE: z.string().optional().transform((v) => v === "true" || v === "1"),
@@ -122,6 +131,7 @@ export function getEnv(): AppEnv {
     RESEND_FROM: process.env.RESEND_FROM,
     WC_CATEGORY_SLUG: process.env.WC_CATEGORY_SLUG,
     WC_INCLUDE_ALL_PRODUCTS: process.env.WC_INCLUDE_ALL_PRODUCTS,
+    EMAIL_VERIFICATION_REQUIRED: process.env.EMAIL_VERIFICATION_REQUIRED,
     WALLET_ENABLED: process.env.WALLET_ENABLED,
     WALLET_FREEZE: process.env.WALLET_FREEZE,
     CREATE_PUBLISH_FEE_MINOR: process.env.CREATE_PUBLISH_FEE_MINOR,
@@ -228,6 +238,11 @@ export function appUrl() {
 export function hasSupabase() {
   const env = getEnvSafe();
   return Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+/** Flag-gated email verification. Default false — behaviour is unchanged until the WP plugin ships and this is set. */
+export function emailVerificationRequired() {
+  return getEnvSafe().EMAIL_VERIFICATION_REQUIRED === true;
 }
 
 /** Wallet master switch. Default false — money routes fail closed. */

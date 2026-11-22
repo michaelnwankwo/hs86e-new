@@ -10,6 +10,7 @@ import {
   sameOriginRequest,
   validSessionToken,
 } from "@/lib/customer-account-proxy";
+import { emailVerificationRequired } from "@/lib/env";
 
 const schema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -26,7 +27,18 @@ export async function POST(request: Request) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),
-    }) as { sessionToken?: unknown; user?: unknown; wallet?: unknown } | null;
+    }) as { sessionToken?: unknown; user?: unknown; wallet?: unknown; pendingVerification?: unknown } | null;
+    /**
+     * Flag-gated email activation flow. When verification is required and
+     * WordPress answers with pendingVerification: true (no usable session yet),
+     * acknowledge the signup WITHOUT setting a session cookie — the client
+     * shows the "Check your inbox to activate" panel instead of routing to the
+     * dashboard. When the flag is unset/false this branch never runs and
+     * existing behaviour is byte-for-byte unchanged.
+     */
+    if (emailVerificationRequired() && result?.pendingVerification === true) {
+      return NextResponse.json({ ok: true, pendingVerification: true }, { status: 201, headers: noStoreHeaders() });
+    }
     if (!validSessionToken(result?.sessionToken)) {
       return NextResponse.json({ error: "Account service returned an invalid session" }, { status: 502 });
     }
